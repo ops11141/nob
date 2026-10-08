@@ -105,7 +105,7 @@ app.innerHTML = `
     <section id="discovery" class="section">
       <div class="page-title"><span>PUBLIC DATA DISCOVERY</span><h2>استكشاف البيانات والطلبات</h2><p>يستخرج NOB البصمة العامة للصفحة والملفات والنماذج ومؤشرات الـ endpoints الظاهرة، بدون تسجيل دخول أو تجاوز حماية.</p></div>
       <div class="scan-card">
-        <div class="active-mode"><div><strong>Public Surface Discovery</strong><span>HTML · JS · CSS · Forms · GET/POST · مؤشرات API العامة</span></div><button id="discoveryBtn">ابدأ الاستكشاف</button></div>
+        <div class="active-mode"><div><strong>Public Surface Discovery</strong><span>HTML · JS · CSS · Forms · GET/POST/PUT/DELETE · API · صفحات عامة · Robots/Sitemap</span></div><button id="discoveryBtn">ابدأ الاستكشاف</button></div>
         <div id="discoveryResult" class="empty-state compact"><strong>لم يبدأ الاستكشاف</strong><span>نفّذ فحصًا أساسيًا أولًا ثم استكشف السطح العام لنفس الهدف.</span></div>
       </div>
       <div id="discoveryTable" class="finding-list"></div>
@@ -246,7 +246,8 @@ $('discoveryBtn').addEventListener('click',async()=>{
     const r=await discoverPublicDataSurface(state.target,p=>setProgress(p,p.label));
     if(!r.ok) throw new Error(r.error||'تعذر الاستكشاف');
     $('discoveryResult').innerHTML='<strong>اكتمل الاستكشاف العام</strong><span>'+esc('الملفات: '+r.counts.resources+' · مؤشرات endpoints: '+r.counts.endpoints+' · النماذج: '+r.counts.forms)+'</span>';
-    $('discoveryTable').innerHTML=(r.endpoints||[]).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">PUBLIC</span><span class="finding-code">GET</span></div><h3>'+esc(x.url)+'</h3><p>مؤشر Endpoint ظاهر داخل JavaScript عام.</p><div class="recommendation"><b>المصدر:</b> '+esc(x.source)+'</div></article>').join('')+
+    $('discoveryTable').innerHTML='<article class="finding severity-low"><div class="finding-top"><span class="severity">PUBLIC</span><span class="finding-code">SUMMARY</span></div><h3>خريطة السطح العام</h3><p>تم تحليل الصفحات والملفات والنماذج ومؤشرات الطلبات الظاهرة.</p><div class="recommendation"><b>الصفحات:</b> '+esc(r.counts.pages)+' · <b>الملفات:</b> '+esc(r.counts.resources)+' · <b>Robots:</b> '+esc(r.robots.available?'متاح':'غير متاح')+' · <b>Sitemap:</b> '+esc(r.sitemap.available?'متاح':'غير متاح')+'</div></article>'+
+      (r.endpoints||[]).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">PUBLIC</span><span class="finding-code">'+esc(x.method)+'</span></div><h3>'+esc(x.url)+'</h3><p>'+esc(x.type==='form'?'نموذج HTML عام.':x.type==='javascript'?'مؤشر طلب داخل JavaScript عام.':'مسار API محتمل ظاهر في الكود.')+'</p><div class="recommendation"><b>المصدر:</b> '+esc(x.source)+'</div></article>').join('')+
       (r.forms||[]).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">'+esc(x.method)+'</span><span class="finding-code">FORM</span></div><h3>'+esc(x.url)+'</h3><p>نموذج عام ظاهر في HTML.</p><div class="recommendation"><b>الحقول:</b> '+esc((x.fields||[]).join(', ')||'لا توجد حقول مسماة')+'</div></article>').join('');
     toast('اكتمل استكشاف البيانات العامة');
   }catch(e){toast(e.message||'تعذر الاستكشاف');}
