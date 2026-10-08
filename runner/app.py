@@ -31,6 +31,7 @@ class KaliJob(BaseModel):
     tool:str
     target:str
     timeout:int=Field(default=90,ge=10,le=180)
+    command:str=Field(default="",max_length=2000)
 
 KALI_SAFE_PROFILES={
  "sql":["sqlmap","-u"],
@@ -278,6 +279,48 @@ def kali_tool_command(job):
         return ["hydra","-h"]
     raise ValueError("Unsupported Kali tool")
 
+@app.post("/kali-tools/command")
+async def kali_tools_command_route(job:KaliJob):
+    import shutil, shlex
+    key=job.tool.lower()
+    target=normalize_target(job.target)
+    raw=job.command.strip()
+    if not raw: raise HTTPException(400,"Command is required")
+    try: parts=shlex.split(raw)
+    except ValueError as e: raise HTTPException(400,f"Invalid command syntax: {e}")
+    if not parts: raise HTTPException(400,"Command is required")
+    base=parts[0].lower()
+    if base in {"sh","bash","zsh","python","python3","perl","ruby","nc","curl","wget","sudo","su"}:
+        raise HTTPException(400,"System shell commands are not available in the NOB tool console")
+    if key=="sql" and base=="sqlmap":
+        if any(x in parts for x in ("--os-shell","--os-cmd","--file-read","--file-write","--dump","--dump-all","--passwords","--sql-shell")):
+            raise HTTPException(400,"This SQLmap action is not available in the NOB authorized console")
+        cmd=["sqlmap","-u",target["url"],"--batch","--level=1","--risk=1","--crawl=1"]
+    elif key=="wp" and base=="wpscan":
+        cmd=["wpscan","--no-update","--url",target["url"],"--enumerate","ap,at"]
+    elif key=="zap" and base in {"zap-baseline.py","zaproxy","zap.sh"}:
+        if shutil.which("zap-baseline.py"): cmd=["zap-baseline.py","-t",target["url"]]
+        elif shutil.which("zaproxy"): cmd=["zaproxy","-dir","/tmp/nob-zap-home","-cmd","-quickurl",target["url"],"-quickprogress"]
+        else: raise HTTPException(400,"OWASP ZAP executable is not available")
+    elif key=="proxy" and base in {"burpsuite","burp"}:
+        cmd=[base,"--version"]
+    elif key=="meta" and base=="msfconsole":
+        if any(x in raw.lower() for x in ("exploit","payload","sessions","shell","meterpreter")):
+            raise HTTPException(400,"Exploit, payload and shell actions are not available in the NOB console")
+        cmd=["msfconsole","-q","-x","version; exit"]
+    elif key=="hydra" and base=="hydra":
+        if len(parts)>1 and parts[1] not in {"-h","-U"}: raise HTTPException(400,"Hydra console is limited to help/module-information commands")
+        cmd=["hydra",*parts[1:]] if len(parts)>1 else ["hydra","-h"]
+    else:
+        raise HTTPException(400,"Unsupported command for selected tool")
+    try:
+        p=await asyncio.create_subprocess_exec(*cmd,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+        out,err=await asyncio.wait_for(p.communicate(),timeout=job.timeout)
+        return {"ok":p.returncode==0,"tool":job.tool,"input":raw,"stdout":out.decode("utf-8","replace")[-40000:],"stderr":err.decode("utf-8","replace")[-10000:],"exitCode":p.returncode,"scope":"authorized-security-assessment"}
+    except asyncio.TimeoutError:
+        try:p.kill()
+        except ProcessLookupError:pass
+        return {"ok":False,"tool":job.tool,"error":"Tool command timed out","scope":"authorized-security-assessment"}
 @app.post("/kali-tools/run")
 async def kali_tools_run(job:KaliJob):
     try:
