@@ -1,6 +1,6 @@
 import { Dwg_File_Type, LibreDwg } from '@mlightcad/libredwg-web';
 let enginePromise;
-export async function getEngine(){if(!enginePromise)enginePromise=LibreDwg.create();return enginePromise}
+export async function getEngine(){if(!enginePromise)enginePromise=LibreDwg.create(import.meta.env.BASE_URL+'assets');return enginePromise}
 function safeCall(fn,fallback=0){try{return fn()??fallback}catch{return fallback}}
 export async function inspectDwg(file,onProgress=()=>{}){
  if(!file)throw new Error('لم يتم اختيار ملف.');
