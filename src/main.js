@@ -78,7 +78,7 @@ function renderSearch(q=''){
   if(!box || !analysisState) return;
   const query=q.trim().toLowerCase();
   if(!query){
-    box.innerHTML='<div class="empty-state compact"><strong>ابدأ البحث</strong><span>اكتب نوع عنصر أو Handle أو اسم ملف.</span></div>';
+    box.innerHTML='<div class="empty-state compact"><strong>ابدأ البحث</strong><span>اكتب نوع عنصر أو Handle أو اسم ملف. البحث يعمل فوق الفهرس الخام.</span></div>';
     return;
   }
   const hits=[];
@@ -105,14 +105,19 @@ async function analyze(file){
   $('objects').textContent=(c.objects??0).toLocaleString('en-US');
   $('entities').textContent=(c.entities??0).toLocaleString('en-US');
   $('layers').textContent=(c.layers??0).toLocaleString('en-US');
-  $('geometry').textContent=(c.modelEntities??0).toLocaleString('en-US');
-  $('blocks').textContent='—';
-  $('texts').textContent='—';
+  const geometryTypes=/^(LINE|LWPOLYLINE|POLYLINE|VERTEX|3DFACE|3DSOLID|ARC|CIRCLE|ELLIPSE|SPLINE|HATCH)$/i;
+  const geometryCount=Object.entries(analysisState.objectTypes||{}).filter(([k])=>geometryTypes.test(k)).reduce((n,[,v])=>n+v,0);
+  $('geometry').textContent=geometryCount.toLocaleString('en-US');
+  const typeCounts=analysisState.objectTypes||{};
+  const blockCount=Object.entries(typeCounts).filter(([k])=>/^INSERT$|^BLOCK_HEADER$|^BLOCK_RECORD$/i.test(k)).reduce((n,[,v])=>n+v,0);
+  const textCount=Object.entries(typeCounts).filter(([k])=>/^(TEXT|MTEXT|ATTRIB|ATTDEF)$/i.test(k)).reduce((n,[,v])=>n+v,0);
+  $('blocks').textContent=blockCount.toLocaleString('en-US');
+  $('texts').textContent=textCount.toLocaleString('en-US');
   const b=r.geometry?.modelBounds||{};
   ['xmin','ymin','xmax','ymax'].forEach(k=>$(k).textContent=formatNum(b[k]));
   renderEntityTypes();
   renderSearch();
-  progress(100,'اكتمل التحليل الأولي — جاهز لبناء مجموعات البيانات');
+  progress(100,'اكتمل استخراج وفهرسة البيانات الخام — جاهز للتصنيف وبناء الشبكة');
   toast('تمت قراءة '+file.name+' بنجاح');
  }catch(e){progress(0,'تعذر التحليل: '+(e.message||e));toast('تعذر قراءة الملف');}
 }
