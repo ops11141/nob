@@ -1,0 +1,582 @@
+[
+  {
+    "index": 0,
+    "type": "TRACE",
+    "handle": 5799976
+  },
+  {
+    "index": 1,
+    "type": "TRACE",
+    "handle": 5800104
+  },
+  {
+    "index": 2,
+    "type": "TRACE",
+    "handle": 5800232
+  },
+  {
+    "index": 3,
+    "type": "3DSOLID",
+    "handle": 5800360
+  },
+  {
+    "index": 4,
+    "type": "XLINE",
+    "handle": 5800488
+  },
+  {
+    "index": 5,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5800616
+  },
+  {
+    "index": 6,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5800744
+  },
+  {
+    "index": 7,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5800872
+  },
+  {
+    "index": 8,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5801000
+  },
+  {
+    "index": 9,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5801128
+  },
+  {
+    "index": 10,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5801256
+  },
+  {
+    "index": 11,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5801384
+  },
+  {
+    "index": 12,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5801512
+  },
+  {
+    "index": 13,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5801640
+  },
+  {
+    "index": 14,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5801768
+  },
+  {
+    "index": 15,
+    "type": "VPORT",
+    "handle": 5801896
+  },
+  {
+    "index": 16,
+    "type": "VPORT",
+    "handle": 5802024
+  },
+  {
+    "index": 17,
+    "type": "LWPOLYLINE",
+    "handle": 5802152
+  },
+  {
+    "index": 18,
+    "type": "BLOCK_HEADER",
+    "handle": 5802280
+  },
+  {
+    "index": 19,
+    "type": "MINSERT",
+    "handle": 5802408
+  },
+  {
+    "index": 20,
+    "type": "ELLIPSE",
+    "handle": 5802536
+  },
+  {
+    "index": 21,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5802664
+  },
+  {
+    "index": 22,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5802792
+  },
+  {
+    "index": 23,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5802920
+  },
+  {
+    "index": 24,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5803048
+  },
+  {
+    "index": 25,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5803176
+  },
+  {
+    "index": 26,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5803304
+  },
+  {
+    "index": 27,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5803432
+  },
+  {
+    "index": 28,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5803560
+  },
+  {
+    "index": 29,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5803688
+  },
+  {
+    "index": 30,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5803816
+  },
+  {
+    "index": 31,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5803944
+  },
+  {
+    "index": 32,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5804072
+  },
+  {
+    "index": 33,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5804200
+  },
+  {
+    "index": 34,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5804328
+  },
+  {
+    "index": 35,
+    "type": "VPORT_CONTROL",
+    "handle": 5804456
+  },
+  {
+    "index": 36,
+    "type": "BLOCK_HEADER",
+    "handle": 5804584
+  },
+  {
+    "index": 37,
+    "type": "BLOCK_HEADER",
+    "handle": 5804712
+  },
+  {
+    "index": 38,
+    "type": "ELLIPSE",
+    "handle": 5804840
+  },
+  {
+    "index": 39,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5804968
+  },
+  {
+    "index": 40,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5805096
+  },
+  {
+    "index": 41,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5805224
+  },
+  {
+    "index": 42,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5805352
+  },
+  {
+    "index": 43,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5805480
+  },
+  {
+    "index": 44,
+    "type": "APPID",
+    "handle": 5805608
+  },
+  {
+    "index": 45,
+    "type": "BLOCK_HEADER",
+    "handle": 5805736
+  },
+  {
+    "index": 46,
+    "type": "ELLIPSE",
+    "handle": 5805864
+  },
+  {
+    "index": 47,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5805992
+  },
+  {
+    "index": 48,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5806120
+  },
+  {
+    "index": 49,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5806248
+  },
+  {
+    "index": 50,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5806376
+  },
+  {
+    "index": 51,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5806504
+  },
+  {
+    "index": 52,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5806632
+  },
+  {
+    "index": 53,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5806760
+  },
+  {
+    "index": 54,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5806888
+  },
+  {
+    "index": 55,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5807016
+  },
+  {
+    "index": 56,
+    "type": "APPID_CONTROL",
+    "handle": 5807144
+  },
+  {
+    "index": 57,
+    "type": "BLOCK_HEADER",
+    "handle": 5807272
+  },
+  {
+    "index": 58,
+    "type": "SOLID",
+    "handle": 5807400
+  },
+  {
+    "index": 59,
+    "type": "ELLIPSE",
+    "handle": 5807528
+  },
+  {
+    "index": 60,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5807656
+  },
+  {
+    "index": 61,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5807784
+  },
+  {
+    "index": 62,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5807912
+  },
+  {
+    "index": 63,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5808040
+  },
+  {
+    "index": 64,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5808168
+  },
+  {
+    "index": 65,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5808296
+  },
+  {
+    "index": 66,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5808424
+  },
+  {
+    "index": 67,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5808552
+  },
+  {
+    "index": 68,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5808680
+  },
+  {
+    "index": 69,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5808808
+  },
+  {
+    "index": 70,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5808936
+  },
+  {
+    "index": 71,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5809064
+  },
+  {
+    "index": 72,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5809192
+  },
+  {
+    "index": 73,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5809320
+  },
+  {
+    "index": 74,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5809448
+  },
+  {
+    "index": 75,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5809576
+  },
+  {
+    "index": 76,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5809704
+  },
+  {
+    "index": 77,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5809832
+  },
+  {
+    "index": 78,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5809960
+  },
+  {
+    "index": 79,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5810088
+  },
+  {
+    "index": 80,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5810216
+  },
+  {
+    "index": 81,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5810344
+  },
+  {
+    "index": 82,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5810472
+  },
+  {
+    "index": 83,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5810600
+  },
+  {
+    "index": 84,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5810728
+  },
+  {
+    "index": 85,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5810856
+  },
+  {
+    "index": 86,
+    "type": "APPID_CONTROL",
+    "handle": 5810984
+  },
+  {
+    "index": 87,
+    "type": "LTYPE_CONTROL",
+    "handle": 5811112
+  },
+  {
+    "index": 88,
+    "type": "BLOCK_HEADER",
+    "handle": 5811240
+  },
+  {
+    "index": 89,
+    "type": "BLOCK_HEADER",
+    "handle": 5811368
+  },
+  {
+    "index": 90,
+    "type": "ELLIPSE",
+    "handle": 5811496
+  },
+  {
+    "index": 91,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5811624
+  },
+  {
+    "index": 92,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5811752
+  },
+  {
+    "index": 93,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5811880
+  },
+  {
+    "index": 94,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5812008
+  },
+  {
+    "index": 95,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5812136
+  },
+  {
+    "index": 96,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5812264
+  },
+  {
+    "index": 97,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5812392
+  },
+  {
+    "index": 98,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5812520
+  },
+  {
+    "index": 99,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5812648
+  },
+  {
+    "index": 100,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5812776
+  },
+  {
+    "index": 101,
+    "type": "VPORT_CONTROL",
+    "handle": 5812904
+  },
+  {
+    "index": 102,
+    "type": "BLOCK_HEADER",
+    "handle": 5813032
+  },
+  {
+    "index": 103,
+    "type": "BLOCK_HEADER",
+    "handle": 5813160
+  },
+  {
+    "index": 104,
+    "type": "LAYER",
+    "handle": 5813288
+  },
+  {
+    "index": 105,
+    "type": "ELLIPSE",
+    "handle": 5813416
+  },
+  {
+    "index": 106,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5813544
+  },
+  {
+    "index": 107,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5813672
+  },
+  {
+    "index": 108,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5813800
+  },
+  {
+    "index": 109,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5813928
+  },
+  {
+    "index": 110,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5814056
+  },
+  {
+    "index": 111,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5814184
+  },
+  {
+    "index": 112,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5814312
+  },
+  {
+    "index": 113,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5814440
+  },
+  {
+    "index": 114,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5814568
+  },
+  {
+    "index": 115,
+    "type": "LSPOINTCOMPONENT",
+    "handle": 5814696
+  }
+]

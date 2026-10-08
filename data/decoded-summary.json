@@ -1,0 +1,48 @@
+{
+  "source": {
+    "name": "GEO.dwg",
+    "sizeBytes": 29310275,
+    "sha256": "0cde59642b2919409c60e5db962755ce3d92099d09168839a335f42d439f0945"
+  },
+  "counts": {
+    "objects": 116,
+    "extractedObjects": 116,
+    "entities": 14,
+    "modelEntities": 0,
+    "classes": 23,
+    "layers": 1,
+    "ltypes": 0,
+    "rawRecords": 655,
+    "stringRecords": 155
+  },
+  "objectTypes": {
+    "TRACE": 3,
+    "3DSOLID": 1,
+    "XLINE": 1,
+    "LSPOINTCOMPONENT": 84,
+    "VPORT": 2,
+    "LWPOLYLINE": 1,
+    "BLOCK_HEADER": 9,
+    "MINSERT": 1,
+    "ELLIPSE": 6,
+    "VPORT_CONTROL": 2,
+    "APPID": 1,
+    "APPID_CONTROL": 2,
+    "SOLID": 1,
+    "LTYPE_CONTROL": 1,
+    "LAYER": 1
+  },
+  "modelEntityTypes": {},
+  "geometry": {
+    "xMin": 5490538.020983465,
+    "yMin": 7587690.020983465,
+    "xMax": 115.77896150182289,
+    "yMax": 0
+  },
+  "qa": {
+    "objectCountMatches": true,
+    "modelEntityCountMatches": true,
+    "rawRecordsAreSeparateFromDwgObjects": true
+  },
+  "generatedAt": "2026-10-08T07:29:40.689Z"
+}
