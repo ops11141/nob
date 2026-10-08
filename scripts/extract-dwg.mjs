@@ -32,12 +32,15 @@ fs.mkdirSync(outDir, { recursive: true });
 
 const objectsCount = safe(() => lib.dwg_get_num_objects(data), 0);
 const entitiesCount = safe(() => lib.dwg_get_num_entities(data), 0);
+const allEntities = safe(() => lib.dwg_get_entities(data), []) || [];
 const modelEntities = safe(() => lib.dwg_getall_entities_in_model_space(data), []) || [];
 const layers = safe(() => lib.dwg_getall_LAYER(data), []) || [];
 const ltypes = safe(() => lib.dwg_getall_LTYPE(data), []) || [];
 
 const objectIndex = [];
 const objectTypes = {};
+const entityIndex = [];
+const entityTypes = {};
 const modelEntityIndex = [];
 const modelEntityTypes = {};
 
@@ -48,6 +51,14 @@ for (let i = 0; i < objectsCount; i++) {
   const handle = safe(() => lib.dwg_object_get_handle(ptr), '') || '';
   objectIndex.push({ index: i, type, handle });
   objectTypes[type] = (objectTypes[type] || 0) + 1;
+}
+
+for (let i = 0; i < allEntities.length; i++) {
+  const ptr = allEntities[i];
+  const type = safe(() => lib.dwg_object_get_dxfname(ptr), 'UNKNOWN') || 'UNKNOWN';
+  const handle = safe(() => lib.dwg_object_get_handle(ptr), '') || '';
+  entityIndex.push({ index: i, type, handle });
+  entityTypes[type] = (entityTypes[type] || 0) + 1;
 }
 
 for (let i = 0; i < modelEntities.length; i++) {
@@ -118,6 +129,7 @@ const summary = {
     objects: objectsCount,
     extractedObjects: objectIndex.length,
     entities: entitiesCount,
+    extractedEntities: entityIndex.length,
     modelEntities: modelEntities.length,
     classes: safe(() => lib.dwg_get_num_classes(data), 0),
     layers: layers.length,
@@ -126,6 +138,7 @@ const summary = {
     stringRecords
   },
   objectTypes,
+  entityTypes,
   modelEntityTypes,
   geometry: {
     xMin: safe(() => lib.dwg_model_x_min(data)),
@@ -135,7 +148,9 @@ const summary = {
   },
   qa: {
     objectCountMatches: objectIndex.length === objectsCount,
+    entityCountMatches: entityIndex.length === entitiesCount,
     modelEntityCountMatches: modelEntityIndex.length === modelEntities.length,
+    lsPointComponentsAreMetadata: (objectTypes.LSPOINTCOMPONENT || 0) > 0,
     rawRecordsAreSeparateFromDwgObjects: true
   },
   generatedAt: new Date().toISOString()
@@ -143,6 +158,7 @@ const summary = {
 
 fs.writeFileSync(path.join(outDir, 'decoded-summary.json'), JSON.stringify(summary, null, 2));
 fs.writeFileSync(path.join(outDir, 'dwg-objects.json'), JSON.stringify(objectIndex, null, 2));
+fs.writeFileSync(path.join(outDir, 'entities.json'), JSON.stringify(entityIndex, null, 2));
 fs.writeFileSync(path.join(outDir, 'model-entities.json'), JSON.stringify(modelEntityIndex, null, 2));
 fs.writeFileSync(path.join(outDir, 'layers.json'), JSON.stringify(layersIndex, null, 2));
 fs.writeFileSync(path.join(outDir, 'linetypes.json'), JSON.stringify(ltypesIndex, null, 2));
