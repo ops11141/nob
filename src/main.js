@@ -234,10 +234,13 @@ $('extractPublicBtn').addEventListener('click',async()=>{
   status.textContent='جاري تحليل الصفحات والملفات العامة والواجهات…'; out.innerHTML='';
   try{
     const target=normalizeTarget($('target').value.trim());
-    const data=await (await import('./security.js')).discoverPublicDataSurface(target,p=>{
-      status.textContent=(p.label||'جاري الاستخراج…')+' — '+(p.percent||0)+'%';
-    });
-    if(!data.ok) throw new Error(data.error||'تعذر استخراج المعلومات العامة');
+    status.textContent='الاتصال بمحرك NOB لاستخراج المعلومات العامة…';
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),180000);
+    const r=await fetch(RUNNER_URL+'/public-surface',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({target:target.url.toString(),timeout:120}),signal:controller.signal,cache:'no-store'});
+    clearTimeout(timer);
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok) throw new Error(data.detail||data.error||'تعذر استخراج المعلومات العامة');
     const endpoints=(data.endpoints||[]).slice(0,120);
     const forms=(data.forms||[]).slice(0,60);
     const pages=(data.pages||[]).slice(0,60);
