@@ -1,131 +1,202 @@
 import './styles.css';
-import { inspectDwg } from './dwg.js';
+import { normalizeTarget, runPassiveAssessment } from './security.js';
 
-const app=document.querySelector('#app');
+const app = document.querySelector('#app');
 
-app.innerHTML=[
-'<div class="app-shell">',
-'<aside class="sidebar"><div class="brand"><div class="brand-mark">N</div><div><strong>NOB</strong><span>GEO DATA PLATFORM</span></div></div>',
-'<nav class="nav">',
-'<button class="nav-item active" data-section="overview">⌂ الرئيسية</button>',
-'<button class="nav-item" data-section="source">▣ ملف المصدر</button>',
-'<button class="nav-item" data-section="entities">◇ جميع العناصر</button>',
-'<button class="nav-item" data-section="equipment">⚡ المعدات</button>',
-'<button class="nav-item" data-section="feeders">⌁ المغذيات والمسارات</button>',
-'<button class="nav-item" data-section="geo">◎ البيانات الجغرافية</button>',
-'<button class="nav-item" data-section="search">⌕ البحث</button>',
-'<button class="nav-item" data-section="qa">✓ الجودة والتحقق</button>',
-'</nav><div class="sidebar-bottom"><div class="source-mini"><span class="dot"></span><div><small>المصدر</small><strong>GEO.dwg</strong></div></div><div class="version">NOB · Extraction Engine</div></div></aside>',
-'<main class="main"><header class="topbar"><div><div class="eyebrow">GEO / ENGINEERING DATA</div><h1>لوحة التحكم الرئيسية</h1><p>نحوّل الرسم الهندسي الكامل إلى قاعدة بيانات قابلة للبحث والتحليل والاستفادة.</p></div><div class="top-actions"><label class="upload-btn">استيراد GEO.dwg<input id="file" type="file" accept=".dwg"></label><button class="ghost" id="refresh">تحديث</button></div></header>',
-'<section id="overview" class="section active-section">',
-'<div class="hero"><div class="hero-copy"><div class="hero-label">PROJECT NOB</div><h2>كل بيانات الرسم في مكان واحد</h2><p>نستخرج العناصر الهندسية، الطبقات، النصوص، البلوكات، المعدات، المغذيات، المسارات، الكابلات والوصلات، ثم نبني بينها علاقات وبيانات جغرافية قابلة للاستخدام.</p><div class="hero-actions"><label class="primary-btn">ابدأ استخراج الملف<input id="fileHero" type="file" accept=".dwg"></label><button class="secondary-btn" data-go="entities">استعراض بنية البيانات</button></div></div><div class="hero-orbit"><div class="orbit o1"></div><div class="orbit o2"></div><div class="orbit o3"></div><div class="core">GEO<br><b>DWG</b></div></div></div>',
-'<div class="stats"><article class="stat"><span>Objects</span><strong id="objects">—</strong><small>جميع كائنات DWG</small></article><article class="stat"><span>Entities</span><strong id="entities">—</strong><small>العناصر الهندسية</small></article><article class="stat"><span>Layers</span><strong id="layers">—</strong><small>طبقات الرسم</small></article><article class="stat"><span>Blocks</span><strong id="blocks">—</strong><small>البلوكات والرموز</small></article><article class="stat"><span>Text / MTEXT</span><strong id="texts">—</strong><small>النصوص والبيانات</small></article><article class="stat"><span>Geometry</span><strong id="geometry">—</strong><small>الخطوط والمسارات</small></article></div>',
-'<div class="grid-main"><section class="panel wide"><div class="panel-head"><div><h3>ماذا سنستخرج من GEO.dwg؟</h3><p>كل طبقة من الملف لها مكان مستقل داخل المنصة.</p></div><span class="ready">ARCHITECTURE READY</span></div><div class="module-grid">',
-'<div class="module"><b>01</b><strong>العناصر الخام</strong><span>LINE · POLYLINE · ARC · CIRCLE · SPLINE · HATCH وغيرها</span></div>',
-'<div class="module"><b>02</b><strong>المعدات</strong><span>RMU · EOS · Recloser · Substation · Pole ومكونات الشبكة</span></div>',
-'<div class="module"><b>03</b><strong>المغذيات</strong><span>رقم المغذي، اسمه، مساره، نقاطه، وعلاقته بالمعدات</span></div>',
-'<div class="module"><b>04</b><strong>الكابلات والوصلات</strong><span>HV/MV Cable · Joint · ST.JOINT · Extra Cable</span></div>',
-'<div class="module"><b>05</b><strong>البيانات الجغرافية</strong><span>إحداثيات CAD الأصلية + طبقة تحويل جغرافي منفصلة</span></div>',
-'<div class="module"><b>06</b><strong>العلاقات</strong><span>Feeder → Route → Cable → Joint → Equipment</span></div>',
-'</div></section>',
-'<section class="panel"><div class="panel-head"><div><h3>حالة الاستخراج</h3><p id="statusText">بانتظار ملف المصدر</p></div></div><div class="pipeline"><div class="step done"><i>1</i><span>Source</span><em>جاهز</em></div><div class="step"><i>2</i><span>Decode DWG</span><em>بانتظار</em></div><div class="step"><i>3</i><span>Normalize</span><em>بانتظار</em></div><div class="step"><i>4</i><span>Classify</span><em>بانتظار</em></div><div class="step"><i>5</i><span>Network</span><em>بانتظار</em></div><div class="step"><i>6</i><span>GeoJSON</span><em>بانتظار</em></div></div><div class="progress"><div id="bar"></div></div></section>',
-'<section class="panel"><div class="panel-head"><div><h3>مركز الوصول السريع</h3><p>الأقسام التي سنبنيها فوق البيانات المستخرجة.</p></div></div><div class="quick"><button data-go="equipment"><b>⚡</b><span>المعدات<small>RMU / EOS / Recloser</small></span><i>›</i></button><button data-go="feeders"><b>⌁</b><span>المغذيات<small>Route & Network</small></span><i>›</i></button><button data-go="geo"><b>◎</b><span>الخريطة<small>GeoJSON & Coordinates</small></span><i>›</i></button><button data-go="search"><b>⌕</b><span>البحث<small>اسم / رقم / طبقة / Handle</small></span><i>›</i></button></div></section></div>',
-'<section class="panel"><div class="panel-head"><div><h3>مبدأ NOB</h3><p>لا نفقد أي معلومة أثناء التحويل.</p></div></div><div class="principles"><div><strong>المصدر محفوظ</strong><span>GEO.dwg يبقى كما هو ولا نكتب فوقه.</span></div><div><strong>لا حذف</strong><span>العناصر غير المصنفة تبقى في البيانات الخام.</span></div><div><strong>الإحداثيات أصلية</strong><span>نحتفظ بإحداثيات CAD ونفصل أي تحويل جغرافي.</span></div><div><strong>QA مستمر</strong><span>نقارن أعداد المصدر مع أعداد كل مرحلة.</span></div></div></section>',
-'</section>',
-'<section id="entities" class="section"><div class="page-title"><span>DATASET</span><h2>جميع العناصر</h2><p>قاعدة العناصر الخام: Handle وDXF Type وLayer وGeometry.</p></div><div class="data-toolbar"><div class="data-summary" id="entitySummary">لم يتم تحليل ملف بعد</div><input id="entityFilter" placeholder="تصفية حسب نوع العنصر..."></div><div class="entity-table" id="entityTable"><div class="empty-state"><b>RAW ENTITIES</b><strong>سيظهر هنا تصنيف العناصر المستخرج من GEO.dwg</strong><span>لا يتم إسقاط العناصر غير المعروفة.</span></div></div></section>',
-'<section id="equipment" class="section"><div class="page-title"><span>NETWORK ASSETS</span><h2>المعدات</h2><p>RMU وEOS وRecloser والمحطات والأعمدة والمكونات الأخرى.</p></div><div class="asset-grid" id="assetGrid"><div class="empty-state"><b>EQUIPMENT INDEX</b><strong>سجل موحد لكل معدة</strong><span>سيتم ربط المعدات بالنصوص والبلوكات والهندسة الفعلية في مرحلة التصنيف.</span></div></div></section>',
-'<section id="feeders" class="section"><div class="page-title"><span>NETWORK</span><h2>المغذيات والمسارات</h2><p>تحويل الرسم إلى شبكة قابلة للفهم والتحليل.</p></div><div class="network-preview"><div class="network-node"><b>FEEDER</b><span>المغذي</span></div><i>→</i><div class="network-node"><b>ROUTE</b><span>المسار</span></div><i>→</i><div class="network-node"><b>CABLE</b><span>الكابل</span></div><i>→</i><div class="network-node"><b>JOINT</b><span>الوصلات</span></div><i>→</i><div class="network-node"><b>EQUIPMENT</b><span>المعدات</span></div></div><div class="empty-state compact"><strong>محرك العلاقات جاهز</strong><span>سيتم ملء الشبكة من الهندسة والنصوص بعد اكتمال استخراج العناصر.</span></div></section>',
-'<section id="geo" class="section"><div class="page-title"><span>GEOSPATIAL</span><h2>البيانات الجغرافية</h2><p>إحداثيات الرسم ومسارات الشبكة وطبقات GeoJSON.</p></div><div class="geo-panel"><div class="coord-card"><span>CAD X MIN</span><strong id="xmin">—</strong></div><div class="coord-card"><span>CAD Y MIN</span><strong id="ymin">—</strong></div><div class="coord-card"><span>CAD X MAX</span><strong id="xmax">—</strong></div><div class="coord-card"><span>CAD Y MAX</span><strong id="ymax">—</strong></div></div><div class="empty-state compact"><strong>الخريطة ستُبنى من الهندسة الفعلية</strong><span>لا يتم تحويل إحداثيات CAD أو استبدالها؛ أي إسقاط جغرافي سيكون طبقة منفصلة.</span></div></section>',
-'<section id="search" class="section"><div class="page-title"><span>SEARCH</span><h2>البحث الشامل</h2><p>بحث واحد في جميع البيانات.</p></div><div class="search-box"><input placeholder="ابحث عن RMU أو EOS أو Feeder أو Layer أو Handle..." id="globalSearch"><button>بحث</button></div><div id="searchResults" class="search-results"><div class="empty-state compact"><strong>سيبحث NOB في جميع مجموعات البيانات</strong><span>رقم المعدة · اسم المغذي · النص · الطبقة · نوع العنصر · الإحداثيات.</span></div></div></section>',
-'<section id="source" class="section"><div class="page-title"><span>SOURCE</span><h2>ملف المصدر</h2><p>فحص GEO.dwg قبل وبعد الاستخراج.</p></div><div class="source-card"><div><span>اسم الملف</span><strong id="sourceName">GEO.dwg</strong></div><div><span>الحجم</span><strong id="sourceSize">—</strong></div><div><span>الحالة</span><strong class="green">READ ONLY</strong></div></div></section>',
-'<section id="qa" class="section"><div class="page-title"><span>QUALITY ASSURANCE</span><h2>الجودة والتحقق</h2><p>التأكد من عدم فقدان أي عنصر بين المصدر والبيانات النهائية.</p></div><div class="qa-grid"><div class="qa-card"><b>RAW = NORMALIZED</b><span>مطابقة أعداد العناصر</span></div><div class="qa-card"><b>CLASSIFIED + UNKNOWN</b><span>لا توجد عناصر مفقودة</span></div><div class="qa-card"><b>GEOMETRY CHECK</b><span>فحص الإحداثيات والمسارات</span></div><div class="qa-card"><b>RELATION CHECK</b><span>فحص علاقات المعدات والمغذيات</span></div></div></section>',
-'<div id="toast" class="toast"></div><div class="footer">NOB — GEO Data Platform · المصدر للقراءة فقط</div></main></div>'
-].join('');
+app.innerHTML = `
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">N</div><div><strong>NOB</strong><span>CYBER DEFENSE PLATFORM</span></div></div>
+    <nav class="nav">
+      <button class="nav-item active" data-section="overview">⌂ الرئيسية</button>
+      <button class="nav-item" data-section="scan">◉ فحص موقع</button>
+      <button class="nav-item" data-section="findings">⚠ النتائج والمخاطر</button>
+      <button class="nav-item" data-section="exposure">◈ البيانات المكشوفة</button>
+      <button class="nav-item" data-section="headers">▣ HTTP / Headers</button>
+      <button class="nav-item" data-section="technology">◇ التقنيات</button>
+      <button class="nav-item" data-section="report">▤ التقرير</button>
+      <button class="nav-item" data-section="about">✓ منهجية الفحص</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="safe-badge"><span>●</span><div><small>وضع الفحص</small><strong>PASSIVE / SAFE</strong></div></div>
+      <div class="version">NOB · Cyber Defense</div>
+    </div>
+  </aside>
 
-const $=id=>document.getElementById(id);
-const sections=[...document.querySelectorAll('.section')];
-function showSection(id){sections.forEach(s=>s.classList.toggle('active-section',s.id===id));document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.section===id));window.scrollTo({top:0,behavior:'smooth'});}
+  <main class="main">
+    <header class="topbar">
+      <div><div class="eyebrow">CYBER DEFENSE / WEB ASSESSMENT</div><h1>منصة فحص وحماية المواقع</h1><p>حلّل ما يظهر للعامة، اكتشف نقاط الضعف في الإعدادات، وصنّف خطورة البيانات المكشوفة.</p></div>
+      <div class="top-actions"><button class="ghost" id="reset">إعادة ضبط</button></div>
+    </header>
+
+    <section id="overview" class="section active-section">
+      <div class="hero security-hero">
+        <div class="hero-copy">
+          <div class="hero-label">NOB CYBER DEFENSE</div>
+          <h2>اعرف ماذا يستطيع المهاجم رؤيته من الخارج</h2>
+          <p>أدخل نطاقًا تملكه أو لديك تصريح بفحصه. يبدأ NOB بفحوصات دفاعية منخفضة المخاطر، ثم يحوّل النتائج إلى درجة أمنية واضحة وتوصيات قابلة للتنفيذ.</p>
+          <div class="hero-actions"><button class="primary-btn" data-go="scan">ابدأ فحصًا آمنًا</button><button class="secondary-btn" data-go="about">شاهد المنهجية</button></div>
+        </div>
+        <div class="security-orbit"><div class="shield">NOB<br><b>SECURE</b></div><i></i><i></i><i></i></div>
+      </div>
+
+      <div class="stats">
+        <article class="stat"><span>SECURITY SCORE</span><strong id="score">—</strong><small>من 100</small></article>
+        <article class="stat"><span>CRITICAL</span><strong id="critical">0</strong><small>مخاطر حرجة</small></article>
+        <article class="stat"><span>HIGH</span><strong id="high">0</strong><small>مخاطر عالية</small></article>
+        <article class="stat"><span>MEDIUM</span><strong id="medium">0</strong><small>مخاطر متوسطة</small></article>
+        <article class="stat"><span>LOW</span><strong id="low">0</strong><small>ملاحظات منخفضة</small></article>
+        <article class="stat"><span>CHECKS</span><strong id="checks">0</strong><small>فحوصات منفذة</small></article>
+      </div>
+
+      <div class="grid-main">
+        <section class="panel wide">
+          <div class="panel-head"><div><h3>محرك التحليل الأمني</h3><p>من URL إلى تقييم واضح بدون استغلال أو تجاوز صلاحيات.</p></div><span class="ready">DEFENSIVE MODE</span></div>
+          <div class="module-grid">
+            <div class="module"><b>01</b><strong>الهدف والنطاق</strong><span>تحقق من URL وتحديد البروتوكول والنطاق بشكل آمن.</span></div>
+            <div class="module"><b>02</b><strong>TLS / HTTPS</strong><span>فحص استخدام HTTPS ومؤشرات الحماية الأساسية.</span></div>
+            <div class="module"><b>03</b><strong>Security Headers</strong><span>CSP · HSTS · X-Content-Type-Options وغيرها.</span></div>
+            <div class="module"><b>04</b><strong>Cookies</strong><span>Secure · HttpOnly · SameSite عند توفر استجابة HTTP.</span></div>
+            <div class="module"><b>05</b><strong>Information Exposure</strong><span>مؤشرات المعلومات التي قد تكشف تفاصيل غير ضرورية.</span></div>
+            <div class="module"><b>06</b><strong>Risk Engine</strong><span>تصنيف Critical / High / Medium / Low مع سبب وتوصية.</span></div>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><h3>حالة الفحص</h3><p id="statusText">جاهز لفحص موقع مصرح لك به</p></div></div>
+          <div class="pipeline">
+            <div class="step done"><i>1</i><span>Target</span><em>جاهز</em></div>
+            <div class="step" id="stepDns"><i>2</i><span>Public DNS</span><em>بانتظار</em></div>
+            <div class="step" id="stepHttp"><i>3</i><span>HTTP Response</span><em>بانتظار</em></div>
+            <div class="step" id="stepHeaders"><i>4</i><span>Headers</span><em>بانتظار</em></div>
+            <div class="step" id="stepRisk"><i>5</i><span>Risk Analysis</span><em>بانتظار</em></div>
+          </div>
+          <div class="progress"><div id="bar"></div></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><h3>آخر نتيجة</h3><p>ملخص سريع للفحص الحالي.</p></div></div>
+          <div id="lastResult" class="empty-state compact"><strong>لا يوجد فحص</strong><span>ابدأ من قسم «فحص موقع».</span></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="scan" class="section">
+      <div class="page-title"><span>SAFE ASSESSMENT</span><h2>فحص موقع</h2><p>الفحص هنا دفاعي وPassive؛ لا نحاول تسجيل الدخول أو استغلال الثغرات.</p></div>
+      <div class="scan-card">
+        <div class="target-input"><label>رابط الموقع</label><input id="target" type="url" inputmode="url" placeholder="https://example.com" autocomplete="off"><button id="scanBtn">ابدأ الفحص</button></div>
+        <div class="consent"><span>✓</span> استخدم الفحص فقط على المواقع التي تملكها أو لديك تصريح صريح بفحصها.</div>
+      </div>
+      <div class="scan-note"><b>ملاحظة تقنية:</b> نسخة GitHub Pages تعمل داخل المتصفح، لذلك بعض اختبارات HTTP قد يمنعها CORS. عندها تُسجل كـ «غير قابل للقياس» بدل اعتبار الموقع ضعيفًا.</div>
+      <div id="targetSummary" class="target-summary"></div>
+    </section>
+
+    <section id="findings" class="section">
+      <div class="page-title"><span>RISK ENGINE</span><h2>النتائج والمخاطر</h2><p>كل ملاحظة لها مستوى خطورة وسبب وتوصية.</p></div>
+      <div id="findingsList" class="finding-list"><div class="empty-state"><strong>لا توجد نتائج بعد</strong><span>شغّل فحصًا أولًا.</span></div></div>
+    </section>
+
+    <section id="exposure" class="section">
+      <div class="page-title"><span>DATA EXPOSURE</span><h2>البيانات المكشوفة</h2><p>نصنف المعلومات الظاهرة للعامة بدون محاولة استخراج بيانات خاصة أو تجاوز الحماية.</p></div>
+      <div class="exposure-grid" id="exposureGrid"><div class="empty-state"><strong>بانتظار الفحص</strong><span>ستظهر هنا مؤشرات الإفصاح العام، وليس بيانات الاعتماد أو المحتوى الخاص.</span></div></div>
+    </section>
+
+    <section id="headers" class="section">
+      <div class="page-title"><span>HTTP SECURITY</span><h2>HTTP / Security Headers</h2><p>حالة أهم رؤوس الحماية عند توفر استجابة HTTP قابلة للقراءة.</p></div>
+      <div id="headersTable" class="header-table"><div class="empty-state"><strong>لا توجد استجابة مفحوصة</strong><span>ابدأ فحصًا أولًا.</span></div></div>
+    </section>
+
+    <section id="technology" class="section">
+      <div class="page-title"><span>TECHNOLOGY</span><h2>التقنيات والمؤشرات</h2><p>مؤشرات عامة يمكن استنتاجها من الاستجابة العامة فقط.</p></div>
+      <div id="techGrid" class="tech-grid"><div class="empty-state"><strong>بانتظار الفحص</strong><span>لن نحاول اختراق الموقع لمعرفة التقنيات المخفية.</span></div></div>
+    </section>
+
+    <section id="report" class="section">
+      <div class="page-title"><span>SECURITY REPORT</span><h2>التقرير</h2><p>ملخص قابل للمراجعة لنتيجة الفحص.</p></div>
+      <div id="reportCard" class="report-card"><div class="empty-state"><strong>التقرير غير متاح</strong><span>نفذ فحصًا أولًا.</span></div></div>
+    </section>
+
+    <section id="about" class="section">
+      <div class="page-title"><span>METHODOLOGY</span><h2>منهجية NOB</h2><p>نبدأ بالأمان والخصوصية قبل عمق الفحص.</p></div>
+      <div class="principles security-principles">
+        <div><strong>Passive أولًا</strong><span>لا استغلال للثغرات ولا تخطي للمصادقة.</span></div>
+        <div><strong>لا بيانات خاصة</strong><span>لا نحاول جمع كلمات مرور أو Tokens أو بيانات مستخدمين.</span></div>
+        <div><strong>عدم اليقين واضح</strong><span>إذا منع CORS قياس شيء، نعرضه كغير قابل للقياس بدل تخمين النتيجة.</span></div>
+        <div><strong>الإصلاح أهم من الاكتشاف</strong><span>كل Finding مهم يتبعه تفسير وتوصية دفاعية.</span></div>
+      </div>
+      <div class="panel methodology-panel"><h3>مراحل التطوير</h3><div class="roadmap"><span>01 Passive URL</span><span>02 Headers & TLS</span><span>03 DNS & Exposure</span><span>04 Risk Scoring</span><span>05 Reports</span><span>06 Backend Scanner مُصرّح</span></div></div>
+    </section>
+
+    <div id="toast" class="toast"></div>
+    <div class="footer">NOB — Cyber Defense Platform · للاستخدام الدفاعي والمصرح به فقط</div>
+  </main>
+</div>`;
+
+const $ = id => document.getElementById(id);
+const sections = [...document.querySelectorAll('.section')];
+let state = null;
+
+function showSection(id){
+  sections.forEach(s=>s.classList.toggle('active-section',s.id===id));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.section===id));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 document.querySelectorAll('[data-section]').forEach(b=>b.addEventListener('click',()=>showSection(b.dataset.section)));
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showSection(b.dataset.go)));
-function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
-function progress(p,msg){$('bar').style.width=p+'%';$('statusText').textContent=msg;}
-let analysisState=null;
 
-function formatNum(v){
-  return typeof v==='number' && Number.isFinite(v) ? v.toLocaleString('en-US') : '—';
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+function setProgress(p,msg){$('bar').style.width=p+'%';$('statusText').textContent=msg;}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+
+function renderFindings(findings=[]){
+  const box=$('findingsList');
+  if(!findings.length){box.innerHTML='<div class="empty-state compact"><strong>لم تظهر مخاطر قابلة للقياس</strong><span>قد يعني ذلك أن الفحوصات المتاحة لم ترصد مشكلة، وليس ضمانًا أن الموقع خالٍ من الثغرات.</span></div>';return;}
+  box.innerHTML=findings.map(f=>`<article class="finding severity-${esc(f.severity.toLowerCase())}">
+    <div class="finding-top"><span class="severity">${esc(f.severity)}</span><span class="finding-code">${esc(f.code)}</span></div>
+    <h3>${esc(f.title)}</h3><p>${esc(f.reason)}</p><div class="recommendation"><b>التوصية:</b> ${esc(f.recommendation)}</div>
+  </article>`).join('');
 }
 
-function renderEntityTypes(filter=''){
-  const box=$('entityTable');
-  if(!box || !analysisState) return;
-  const rows=Object.entries(analysisState.entityTypes||{})
-    .filter(([name])=>name.toLowerCase().includes(filter.trim().toLowerCase()))
-    .sort((a,b)=>b[1]-a[1]);
-  if(!rows.length){
-    box.innerHTML='<div class="empty-state compact"><strong>لا توجد نتائج</strong><span>جرّب كلمة أخرى.</span></div>';
-    return;
-  }
-  box.innerHTML='<div class="entity-row entity-head"><b>DXF TYPE</b><b>COUNT</b><b>HANDLES</b></div>'+
-    rows.map(([name,count])=>{
-      const handles=(analysisState.typeSamples?.[name]||[]).map(x=>x.handle||'—').join(' · ');
-      return '<div class="entity-row"><strong>'+name+'</strong><span>'+formatNum(count)+'</span><small>'+handles+'</small></div>';
-    }).join('');
-  $('entitySummary').textContent=rows.length+' نوع عنصر · '+formatNum(analysisState.counts.modelEntities)+' عنصر في Model Space';
+function renderExposure(items=[]){
+  const box=$('exposureGrid');
+  box.innerHTML=items.length?items.map(x=>`<div class="exposure-card"><span class="risk-dot ${esc(x.level.toLowerCase())}"></span><div><strong>${esc(x.name)}</strong><p>${esc(x.description)}</p></div><b>${esc(x.level)}</b></div>`).join(''):'<div class="empty-state compact"><strong>لا توجد مؤشرات إضافية</strong><span>لم يتم إثبات إفصاح إضافي من الفحوصات المتاحة.</span></div>';
 }
 
-function renderSearch(q=''){
-  const box=$('searchResults');
-  if(!box || !analysisState) return;
-  const query=q.trim().toLowerCase();
-  if(!query){
-    box.innerHTML='<div class="empty-state compact"><strong>ابدأ البحث</strong><span>اكتب نوع عنصر أو Handle أو اسم ملف. البحث يعمل فوق الفهرس الخام.</span></div>';
-    return;
-  }
-  const hits=[];
-  Object.entries(analysisState.entityTypes||{}).forEach(([name,count])=>{
-    if(name.toLowerCase().includes(query)) hits.push({kind:'DXF TYPE',name,count});
-    (analysisState.typeSamples?.[name]||[]).forEach(s=>{
-      if(String(s.handle||'').toLowerCase().includes(query)) hits.push({kind:'HANDLE',name:s.handle,count:1});
-    });
-  });
-  if(analysisState.source.name.toLowerCase().includes(query)) hits.push({kind:'SOURCE',name:analysisState.source.name,count:1});
-  box.innerHTML=hits.length
-    ? hits.slice(0,50).map(h=>'<div class="search-result"><b>'+h.kind+'</b><strong>'+h.name+'</strong><span>'+formatNum(h.count)+'</span></div>').join('')
-    : '<div class="empty-state compact"><strong>لا توجد نتيجة</strong><span>لم نجد تطابقاً في نتائج التحليل الحالية.</span></div>';
+function renderHeaders(headers=[]){
+  const box=$('headersTable');
+  box.innerHTML=headers.map(h=>`<div class="header-row"><div><strong>${esc(h.name)}</strong><span>${esc(h.description)}</span></div><b class="header-status ${h.present?'ok':'warn'}">${h.present?'PRESENT':'MISSING'}</b></div>`).join('');
 }
 
-async function analyze(file){
- try{
-  progress(5,'قراءة الملف...');
-  $('sourceName').textContent=file.name;
-  $('sourceSize').textContent=(file.size/1024/1024).toFixed(2)+' MB';
-  const r=await inspectDwg(file,progress);
-  const c=r.counts;
-  analysisState=r;
-  $('objects').textContent=(c.objects??0).toLocaleString('en-US');
-  $('entities').textContent=(c.entities??0).toLocaleString('en-US');
-  $('layers').textContent=(c.layers??0).toLocaleString('en-US');
-  const geometryTypes=/^(LINE|LWPOLYLINE|POLYLINE|VERTEX|3DFACE|3DSOLID|ARC|CIRCLE|ELLIPSE|SPLINE|HATCH)$/i;
-  const geometryCount=Object.entries(analysisState.objectTypes||{}).filter(([k])=>geometryTypes.test(k)).reduce((n,[,v])=>n+v,0);
-  $('geometry').textContent=geometryCount.toLocaleString('en-US');
-  const typeCounts=analysisState.objectTypes||{};
-  const blockCount=Object.entries(typeCounts).filter(([k])=>/^INSERT$|^BLOCK_HEADER$|^BLOCK_RECORD$/i.test(k)).reduce((n,[,v])=>n+v,0);
-  const textCount=Object.entries(typeCounts).filter(([k])=>/^(TEXT|MTEXT|ATTRIB|ATTDEF)$/i.test(k)).reduce((n,[,v])=>n+v,0);
-  $('blocks').textContent=blockCount.toLocaleString('en-US');
-  $('texts').textContent=textCount.toLocaleString('en-US');
-  const b=r.geometry?.modelBounds||{};
-  ['xmin','ymin','xmax','ymax'].forEach(k=>$(k).textContent=formatNum(b[k]));
-  renderEntityTypes();
-  renderSearch();
-  progress(100,'اكتمل استخراج وفهرسة البيانات الخام — جاهز للتصنيف وبناء الشبكة');
-  toast('تمت قراءة '+file.name+' بنجاح');
- }catch(e){progress(0,'تعذر التحليل: '+(e.message||e));toast('تعذر قراءة الملف');}
+function renderTech(tech=[]){
+  $('techGrid').innerHTML=tech.length?tech.map(t=>`<div class="tech-card"><span>${esc(t.category)}</span><strong>${esc(t.name)}</strong><small>${esc(t.evidence)}</small></div>`).join(''):'<div class="empty-state compact"><strong>لا توجد مؤشرات تقنية مؤكدة</strong><span>لم يتم تخمين تقنيات غير ظاهرة.</span></div>';
 }
-$('file').addEventListener('change',e=>e.target.files[0]&&analyze(e.target.files[0]));
-$('fileHero').addEventListener('change',e=>e.target.files[0]&&analyze(e.target.files[0]));
-$('refresh').addEventListener('click',()=>location.reload());
 
+function renderReport(result){
+  $('reportCard').innerHTML=`<div class="report-head"><div><span>SECURITY ASSESSMENT</span><h3>${esc(result.target.display)}</h3><p>${new Date().toLocaleString('ar-SA')}</p></div><div class="score-ring"><strong>${result.score}</strong><small>/ 100</small></div></div>
+  <div class="report-grid"><div><b>${result.findings.length}</b><span>إجمالي الملاحظات</span></div><div><b>${result.summary.critical}</b><span>حرجة</span></div><div><b>${result.summary.high}</b><span>عالية</span></div><div><b>${result.summary.medium}</b><span>متوسطة</span></div></div>
+  <div class="report-disclaimer">هذا تقييم دفاعي محدود بنطاق الفحوصات المتاحة في المتصفح. لا يعتبر اختبار اختراق ولا يثبت خلو الموقع من الثغرات.</div>`;
+}
 
-$('entityFilter')?.addEventListener('input',e=>renderEntityTypes(e.target.value));
-document.querySelector('#search button')?.addEventListener('click',()=>renderSearch($('globalSearch').value));
-$('globalSearch')?.addEventListener('keydown',e=>{if(e.key==='Enter')renderSearch(e.target.value)});
+async function runScan(){
+  const raw=$('target').value.trim();
+  let target;
+  try{target=normalizeTarget(raw);}catch(e){toast(e.message);return;}
+  $('scanBtn').disabled=true;$('scanBtn').textContent='جاري الفحص...';showSection('overview');setProgress(8,'تحقق من الهدف...');
+  try{
+    state=await runPassiveAssessment(target,p=>setProgress(p,'جاري '+p.label+'...'));
+    $('score').textContent=state.score;
+    $('critical').textContent=state.summary.critical;
+    $('high').textContent=state.summary.high;
+    $('medium').textContent=state.summary.medium;
+    $('low').textContent=state.summary.low;
+    $('checks').textContent=state.checks;
+    $('lastResult').innerHTML=`<div class="result-score"><strong>${state.score}</strong><span>/100</span></div><b>${esc(state.target.display)}</b><small>${esc(state.statusMessage)}</small>`;
+    $('targetSummary').innerHTML=`<div><span>HOST</span><strong>${esc(state.target.host)}</strong></div><div><span>PROTOCOL</span><strong>${esc(state.target.protocol.toUpperCase())}</strong></div><div><span>STATUS</span><strong>${esc(state.statusMessage)}</strong></div>`;
+    renderFindings(state.findings);renderExposure(state.exposure);renderHeaders(state.headers);renderTech(state.technologies);renderReport(state);
+    setProgress(100,'اكتمل الفحص الدفاعي');
+    toast('اكتمل الفحص');
+  }catch(e){setProgress(0,'تعذر إكمال الفحص');toast(e.message||'حدث خطأ غير متوقع');}
+  finally{$('scanBtn').disabled=false;$('scanBtn').textContent='ابدأ الفحص';}
+}
+
+$('scanBtn').addEventListener('click',runScan);
+$('target').addEventListener('keydown',e=>{if(e.key==='Enter')runScan();});
+$('reset').addEventListener('click',()=>location.reload());
