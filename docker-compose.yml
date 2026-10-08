@@ -20,6 +20,9 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8787:8787"
+    depends_on:
+      db-gateway:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health', timeout=3)\""]
       interval: 15s
