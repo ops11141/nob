@@ -340,6 +340,40 @@ $('ftpListBtn').addEventListener('click',async()=>{
   }
 });
 
+
+$('dbQueryBtn').addEventListener('click',async()=>{
+  const btn=$('dbQueryBtn'), status=$('dbStatus'), out=$('dbData');
+  btn.disabled=true; btn.textContent='جاري التنفيذ…'; out.innerHTML='';
+  try{
+    const engine=$('dbEngine').value;
+    const host=$('dbHost').value.trim();
+    const query=$('dbQuery').value.trim();
+    if(!host) throw new Error('أدخل عنوان قاعدة البيانات.');
+    if(!query) throw new Error('أدخل استعلام قراءة.');
+    if(!/^(select|show|describe|desc|explain)\b/i.test(query) || /(;|--|\/\*|\*\/)/.test(query)){
+      throw new Error('يسمح فقط باستعلام قراءة واحد بدون تعليقات أو أوامر متعددة.');
+    }
+    const body={
+      engine,host,
+      port:Number($('dbPort').value|| (engine==='postgresql'?5432:3306)),
+      database:$('dbName').value.trim(),
+      username:$('dbUser').value,
+      password:$('dbPass').value,
+      query,timeout:20,max_rows:200
+    };
+    const r=await fetch(RUNNER_URL+'/db/query',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok) throw new Error(data.detail||data.error||'تعذر تنفيذ الاستعلام');
+    status.textContent=`تم تنفيذ قراءة مصرح بها — ${data.rowCount||0} صف.`;
+    const rows=data.rows||[];
+    out.innerHTML=`<article class="intel-card wide"><div class="card-title"><b>نتيجة القراءة</b><span>${esc(data.engine)}</span></div><pre class="ftp-preview">${esc(rows.join('\\n'))}</pre></article>`;
+  }catch(e){
+    status.textContent='تعذر التنفيذ: '+(e.message||'خطأ غير معروف');
+  }finally{
+    btn.disabled=false; btn.textContent='تنفيذ قراءة';
+  }
+});
+
 $('newScan').addEventListener('click',()=>{$('target').focus();window.scrollTo({top:0,behavior:'smooth'});});
 $('retryEngine').addEventListener('click',checkEngine);
 checkEngine();
