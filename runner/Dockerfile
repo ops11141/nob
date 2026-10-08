@@ -8,6 +8,7 @@ RUN rm -f /etc/apt/sources.list.d/* /etc/apt/sources.list \
  && apt-get update -o Acquire::Retries=5 \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       python3 python3-fastapi python3-uvicorn nmap whatweb nikto dnsrecon wafw00f sslscan subfinder httpx-toolkit ca-certificates sqlmap wpscan zaproxy metasploit-framework hydra \
+ && wpscan --update \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
