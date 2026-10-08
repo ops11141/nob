@@ -1,416 +1,223 @@
-const styleLink = document.createElement('link');
-styleLink.rel = 'stylesheet';
-styleLink.href = new URL('./styles.css', import.meta.url).href;
-document.head.appendChild(styleLink);
-import { normalizeTarget, runPassiveAssessment, runAuthorizedActiveAssessment, runBackendActiveAssessment, discoverPublicDataSurface } from './security.js';
-import { KALI_TOOL_GROUPS, KALI_TOOL_COUNT } from './kali-tools.js';
+import { normalizeTarget } from './security.js';
 
 const app = document.querySelector('#app');
+const RUNNER_URL = (localStorage.getItem('nobRunnerUrl') || 'http://127.0.0.1:8787').replace(/\/$/, '');
 
 app.innerHTML = `
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="brand"><div class="brand-mark">N</div><div><strong>NOB</strong><span>CYBER DEFENSE PLATFORM</span></div></div>
-    <nav class="nav">
-      <button class="nav-item active" data-section="overview">⌂ الرئيسية</button>
-      <button class="nav-item" data-section="scan">◉ فحص موقع</button>
-      <button class="nav-item" data-section="active">⚡ تحقق نشط</button>
-      <button class="nav-item" data-section="discovery">🔎 استكشاف البيانات</button>
-      <button class="nav-item" data-section="kali">☠ ترسانة Kali</button>
-      <button class="nav-item" data-section="findings">⚠ النتائج والمخاطر</button>
-      <button class="nav-item" data-section="exposure">◈ البيانات المكشوفة</button>
-      <button class="nav-item" data-section="headers">▣ HTTP / Headers</button>
-      <button class="nav-item" data-section="technology">◇ التقنيات</button>
-      <button class="nav-item" data-section="report">▤ التقرير</button>
-      <button class="nav-item" data-section="about">✓ منهجية الفحص</button>
-    </nav>
-    <div class="sidebar-bottom">
-      <div class="safe-badge"><span>●</span><div><small>وضع الفحص</small><strong>PASSIVE / SAFE</strong></div></div>
-      <div class="version">NOB · Cyber Defense</div>
-    </div>
-  </aside>
+<div class="nob-app">
+  <header class="top">
+    <div class="brand"><span class="brand-mark">N</span><div><b>NOB</b><small>DEEP SECURITY ENGINE</small></div></div>
+    <div id="engineState" class="engine-state"><i></i><span>محرك الفحص</span><b>جاري التحقق</b></div>
+  </header>
 
-  <main class="main">
-    <header class="topbar">
-      <div><div class="eyebrow">CYBER DEFENSE / WEB ASSESSMENT</div><h1>منصة فحص وحماية المواقع</h1><p>حلّل ما يظهر للعامة، اكتشف نقاط الضعف في الإعدادات، وصنّف خطورة البيانات المكشوفة.</p></div>
-      <div class="top-actions"><button class="ghost" id="reset">إعادة ضبط</button></div>
-    </header>
+  <main>
+    <section class="hero">
+      <div class="eyebrow">NOB / UNIFIED WEBSITE INTELLIGENCE</div>
+      <h1>افحص موقعك بالكامل<br><em>من رابط واحد.</em></h1>
+      <p>أدخل رابط الموقع. NOB ينسّق محركات الاستطلاع والفحص على جهازك، ثم يجمع النتائج في تقرير واحد بدل عرض عشرات الأدوات بشكل منفصل.</p>
 
-    <section id="overview" class="section active-section">
-      <div class="hero security-hero">
-        <div class="hero-copy">
-          <div class="hero-label">NOB CYBER DEFENSE</div>
-          <h2>اعرف ماذا يستطيع المهاجم رؤيته من الخارج</h2>
-          <p>أدخل نطاقًا تملكه أو لديك تصريح بفحصه. يبدأ NOB بفحوصات دفاعية منخفضة المخاطر، ثم يحوّل النتائج إلى درجة أمنية واضحة وتوصيات قابلة للتنفيذ.</p>
-          <div class="hero-actions"><button class="primary-btn" data-go="scan">ابدأ فحصًا آمنًا</button><button class="secondary-btn" data-go="about">شاهد المنهجية</button></div>
-        </div>
-        <div class="security-orbit"><div class="shield">NOB<br><b>SECURE</b></div><i></i><i></i><i></i></div>
+      <form id="scanForm" class="url-box">
+        <span class="url-icon">⌁</span>
+        <input id="target" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com" aria-label="رابط الموقع">
+        <button id="scanBtn" type="submit">ابدأ الفحص الشامل <span>←</span></button>
+      </form>
+      <div class="consent">للمواقع التي تملكها أو لديك تصريح صريح بفحصها فقط.</div>
+      <div id="inputError" class="input-error"></div>
+    </section>
+
+    <section id="scanPanel" class="scan-panel hidden">
+      <div class="target-line"><span>الهدف</span><strong id="targetLabel">—</strong><button id="newScan" type="button">فحص جديد</button></div>
+      <div class="progress-wrap"><div id="progressBar"></div></div>
+      <div class="stages">
+        <div data-stage="dns"><i>01</i><span>DNS & Discovery</span><b>انتظار</b></div>
+        <div data-stage="web"><i>02</i><span>Web Fingerprint</span><b>انتظار</b></div>
+        <div data-stage="network"><i>03</i><span>Services & Ports</span><b>انتظار</b></div>
+        <div data-stage="security"><i>04</i><span>Security Assessment</span><b>انتظار</b></div>
+        <div data-stage="correlation"><i>05</i><span>Correlation</span><b>انتظار</b></div>
+      </div>
+      <div id="scanMessage" class="scan-message">جاري تجهيز الفحص…</div>
+    </section>
+
+    <section id="results" class="results hidden">
+      <div class="result-head">
+        <div><span>UNIFIED INTELLIGENCE</span><h2>نتيجة الفحص</h2></div>
+        <div id="resultBadge" class="result-badge">اكتمل</div>
       </div>
 
-      <div class="stats">
-        <article class="stat"><span>SECURITY SCORE</span><strong id="score">—</strong><small>من 100</small></article>
-        <article class="stat"><span>CRITICAL</span><strong id="critical">0</strong><small>مخاطر حرجة</small></article>
-        <article class="stat"><span>HIGH</span><strong id="high">0</strong><small>مخاطر عالية</small></article>
-        <article class="stat"><span>MEDIUM</span><strong id="medium">0</strong><small>مخاطر متوسطة</small></article>
-        <article class="stat"><span>LOW</span><strong id="low">0</strong><small>ملاحظات منخفضة</small></article>
-        <article class="stat"><span>CHECKS</span><strong id="checks">0</strong><small>فحوصات منفذة</small></article>
+      <div id="summaryGrid" class="summary-grid"></div>
+      <div class="intel-grid">
+        <article class="intel-card wide"><div class="card-title"><b>الأصول والاتصال</b><span>DNS / IP / HTTP</span></div><div id="assetData" class="data-list"></div></article>
+        <article class="intel-card"><div class="card-title"><b>التقنيات</b><span>FINGERPRINT</span></div><div id="techData" class="chips"></div></article>
+        <article class="intel-card"><div class="card-title"><b>WAF / CDN</b><span>DEFENSE LAYER</span></div><div id="wafData" class="data-list"></div></article>
+        <article class="intel-card wide"><div class="card-title"><b>الخدمات والمنافذ</b><span>NMAP</span></div><div id="portsData" class="ports"></div></article>
+        <article class="intel-card"><div class="card-title"><b>TLS</b><span>SSL/TLS</span></div><div id="tlsData" class="data-list"></div></article>
+        <article class="intel-card"><div class="card-title"><b>الملاحظات</b><span>ASSESSMENT</span></div><div id="findingData" class="findings"></div></article>
       </div>
 
-      <div class="grid-main">
-        <section class="panel wide">
-          <div class="panel-head"><div><h3>محرك التحليل الأمني</h3><p>من URL إلى تقييم واضح بدون استغلال أو تجاوز صلاحيات.</p></div><span class="ready">DEFENSIVE MODE</span></div>
-          <div class="module-grid">
-            <div class="module"><b>01</b><strong>الهدف والنطاق</strong><span>تحقق من URL وتحديد البروتوكول والنطاق بشكل آمن.</span></div>
-            <div class="module"><b>02</b><strong>TLS / HTTPS</strong><span>فحص استخدام HTTPS ومؤشرات الحماية الأساسية.</span></div>
-            <div class="module"><b>03</b><strong>Security Headers</strong><span>CSP · HSTS · X-Content-Type-Options وغيرها.</span></div>
-            <div class="module"><b>04</b><strong>Cookies</strong><span>Secure · HttpOnly · SameSite عند توفر استجابة HTTP.</span></div>
-            <div class="module"><b>05</b><strong>Information Exposure</strong><span>مؤشرات المعلومات التي قد تكشف تفاصيل غير ضرورية.</span></div>
-            <div class="module"><b>06</b><strong>Risk Engine</strong><span>تصنيف Critical / High / Medium / Low مع سبب وتوصية.</span></div>
-          </div>
-        </section>
-        <section class="panel">
-          <div class="panel-head"><div><h3>حالة الفحص</h3><p id="statusText">جاهز لفحص موقع مصرح لك به</p></div></div>
-          <div class="pipeline">
-            <div class="step done"><i>1</i><span>Target</span><em>جاهز</em></div>
-            <div class="step" id="stepDns"><i>2</i><span>Public DNS</span><em>بانتظار</em></div>
-            <div class="step" id="stepHttp"><i>3</i><span>HTTP Response</span><em>بانتظار</em></div>
-            <div class="step" id="stepHeaders"><i>4</i><span>Headers</span><em>بانتظار</em></div>
-            <div class="step" id="stepRisk"><i>5</i><span>Risk Analysis</span><em>بانتظار</em></div>
-          </div>
-          <div class="progress"><div id="bar"></div></div>
-        </section>
-        <section class="panel">
-          <div class="panel-head"><div><h3>آخر نتيجة</h3><p>ملخص سريع للفحص الحالي.</p></div></div>
-          <div id="lastResult" class="empty-state compact"><strong>لا يوجد فحص</strong><span>ابدأ من قسم «فحص موقع».</span></div>
-        </section>
-      </div>
+      <details class="raw"><summary>عرض مخرجات المحركات الخام</summary><div id="rawData"></div></details>
     </section>
 
-    <section id="scan" class="section">
-      <div class="page-title"><span>SAFE ASSESSMENT</span><h2>فحص موقع</h2><p>الفحص هنا دفاعي وPassive؛ لا نحاول تسجيل الدخول أو استغلال الثغرات.</p></div>
-      <div class="scan-card">
-        <div class="target-input"><label>رابط الموقع</label><input id="target" type="url" inputmode="url" placeholder="https://example.com" autocomplete="off"><button id="scanBtn">ابدأ الفحص</button></div>
-        <div class="consent"><span>✓</span> استخدم الفحص فقط على المواقع التي تملكها أو لديك تصريح صريح بفحصها.</div>
-      </div>
-      <div class="scan-note"><b>ملاحظة تقنية:</b> نسخة GitHub Pages تعمل داخل المتصفح، لذلك بعض اختبارات HTTP قد يمنعها CORS. عندها تُسجل كـ «غير قابل للقياس» بدل اعتبار الموقع ضعيفًا.</div>
-      <div id="targetSummary" class="target-summary"></div>
+    <section id="offline" class="offline hidden">
+      <div class="offline-icon">!</div>
+      <h3>محرك الفحص غير متصل</h3>
+      <p>الواجهة جاهزة، لكن محرك NOB على جهازك لم يستجب. شغّل NOB Runner ثم أعد المحاولة.</p>
+      <button id="retryEngine" type="button">إعادة التحقق</button>
     </section>
-
-    <section id="active" class="section">
-      <div class="page-title"><span>ACTIVE VALIDATION</span><h2>التحقق النشط</h2><p>طبقة اختبار نشطة غير تخريبية للتأكد من بعض المؤشرات بدل الاعتماد على التخمين.</p></div>
-      <div class="scan-card">
-        <div class="target-input backend-input"><label>NOB Backend</label><input id="backendUrl" type="url" inputmode="url" placeholder="https://nob-backend-scanner.example.workers.dev" autocomplete="off"><button id="saveBackend" type="button">حفظ الربط</button></div>
-        <div id="backendStatus" class="scan-note"><b>حالة الخادم:</b> غير مربوط — سيستخدم الفحص المحلي للمتصفح.</div>
-        <div class="active-mode"><div><strong>Authorized Active Validation</strong><span>الخادم يقرأ HEAD / OPTIONS / GET من خارج المتصفح، بدون تسجيل دخول أو تغيير بيانات أو تنفيذ استغلال.</span></div><button id="activeBtn">ابدأ التحقق النشط</button></div>
-        <div id="activeResult" class="empty-state compact"><strong>لم يبدأ التحقق</strong><span>نفّذ فحصًا أساسيًا أولًا ثم شغّل التحقق النشط على نفس الهدف.</span></div>
-      </div>
-    </section>
-
-    <section id="discovery" class="section">
-      <div class="page-title"><span>PUBLIC DATA DISCOVERY</span><h2>استكشاف البيانات والطلبات</h2><p>يستخرج NOB البصمة العامة للصفحة والملفات والنماذج ومؤشرات الـ endpoints الظاهرة، بدون تسجيل دخول أو تجاوز حماية.</p></div>
-      <div class="scan-card">
-        <div class="active-mode"><div><strong>Public Surface Discovery</strong><span>HTML · JS · CSS · Forms · GET/POST/PUT/DELETE · API · صفحات عامة · Robots/Sitemap</span></div><button id="discoveryBtn">ابدأ الاستكشاف</button></div>
-        <div id="discoveryResult" class="empty-state compact"><strong>لم يبدأ الاستكشاف</strong><span>نفّذ فحصًا أساسيًا أولًا ثم استكشف السطح العام لنفس الهدف.</span></div>
-      </div>
-      <div class="scan-card" style="margin-top:16px">
-        <div class="target-input"><label>بحث داخل البيانات المستخرجة</label><input id="discoverySearch" type="search" placeholder="ابحث عن اسم ملف، endpoint، URL، كلمة، API..." autocomplete="off"><button id="clearDiscoverySearch" type="button">مسح</button></div>
-        <div id="discoverySearchMeta" class="scan-note">لم يتم استخراج بيانات بعد.</div>
-      </div>
-      <div id="discoveryTable" class="finding-list"></div>
-    </section>
-
-    <section id="kali" class="section">
-      <div class="page-title"><span>NOB DEEP WEB INTELLIGENCE</span><h2>الفحص الشامل</h2><p>أداة واحدة تجمع نتائج عدة محركات استطلاع وفحص عام، ثم تعرضها في نتيجة موحدة. استخدمها فقط على هدف تملك أو تصريحًا لاختباره.</p></div>
-      <div class="deep-scan-card scan-card">
-        <div class="deep-scan-hero"><div><strong>⚡ NOB Deep Scan</strong><span>DNS · Technology · Services · Web Exposure</span></div><button id="deepScanBtn" class="primary-btn">ابدأ الفحص الشامل</button></div>
-        <div id="deepScanProgress" class="deep-progress"><div><span>1</span> DNS Discovery</div><div><span>2</span> Web Fingerprint</div><div><span>3</span> Service Discovery</div><div><span>4</span> Web Assessment</div><div><span>5</span> Correlation</div></div>
-        <div id="deepScanResult" class="empty-state compact"><strong>لم يبدأ الفحص الشامل</strong><span>اربط NOB Runner ثم نفّذ فحصًا أساسيًا أو أدخل الهدف في خانة الفحص.</span></div>
-      </div>
-      <div class="scan-card runner-connect"><div class="target-input"><label>NOB Runner — محرك أدوات Kali</label><input id="runnerUrl" type="url" placeholder="https://runner.example.com" autocomplete="off"><button id="saveRunner" type="button">حفظ الربط</button></div><div id="runnerStatus" class="scan-note"><b>حالة Runner:</b> غير مربوط.</div></div>\n      <div class="kali-toolbar scan-card">
-        <div class="target-input">
-          <label>بحث في أدوات Kali</label>
-          <input id="kaliSearch" type="search" placeholder="ابحث: nmap، Burp، Wi-Fi، OSINT..." autocomplete="off">
-          <button id="kaliClear" type="button">مسح</button>
-        </div>
-        <div class="kali-stats"><span><b id="kaliCount"></b> أداة مفهرسة</span><span><b id="kaliGroups"></b> أقسام</span><span><b>OFFICIAL</b> مرجع Kali</span></div>
-      </div>
-      <div class="scan-note kali-note"><b>مهم:</b> Kali يوفر مئات الأدوات عبر مجموعاته الرسمية، ومنها جمع المعلومات، الويب، الثغرات، كلمات المرور، اللاسلكي، الهندسة العكسية، الطب الشرعي وغيرها. سنفصل بين الأدوات الآمنة/الاستطلاعية والأدوات النشطة، ولن نجعل NOB منصة لاستغلال أهداف غير مصرح بها.</div>
-      <div id="kaliCatalog" class="kali-catalog"></div>
-    </section>
-
-    <section id="findings" class="section">
-      <div class="page-title"><span>RISK ENGINE</span><h2>النتائج والمخاطر</h2><p>كل ملاحظة لها مستوى خطورة وسبب وتوصية.</p></div>
-      <div id="findingsList" class="finding-list"><div class="empty-state"><strong>لا توجد نتائج بعد</strong><span>شغّل فحصًا أولًا.</span></div></div>
-    </section>
-
-    <section id="exposure" class="section">
-      <div class="page-title"><span>DATA EXPOSURE</span><h2>البيانات المكشوفة</h2><p>نصنف المعلومات الظاهرة للعامة بدون محاولة استخراج بيانات خاصة أو تجاوز الحماية.</p></div>
-      <div class="exposure-grid" id="exposureGrid"><div class="empty-state"><strong>بانتظار الفحص</strong><span>ستظهر هنا مؤشرات الإفصاح العام، وليس بيانات الاعتماد أو المحتوى الخاص.</span></div></div>
-    </section>
-
-    <section id="headers" class="section">
-      <div class="page-title"><span>HTTP SECURITY</span><h2>HTTP / Security Headers</h2><p>حالة أهم رؤوس الحماية عند توفر استجابة HTTP قابلة للقراءة.</p></div>
-      <div id="headersTable" class="header-table"><div class="empty-state"><strong>لا توجد استجابة مفحوصة</strong><span>ابدأ فحصًا أولًا.</span></div></div>
-    </section>
-
-    <section id="technology" class="section">
-      <div class="page-title"><span>TECHNOLOGY</span><h2>التقنيات والمؤشرات</h2><p>مؤشرات عامة يمكن استنتاجها من الاستجابة العامة فقط.</p></div>
-      <div id="techGrid" class="tech-grid"><div class="empty-state"><strong>بانتظار الفحص</strong><span>لن نحاول اختراق الموقع لمعرفة التقنيات المخفية.</span></div></div>
-    </section>
-
-    <section id="report" class="section">
-      <div class="page-title"><span>SECURITY REPORT</span><h2>التقرير</h2><p>ملخص قابل للمراجعة لنتيجة الفحص.</p></div>
-      <div id="reportCard" class="report-card"><div class="empty-state"><strong>التقرير غير متاح</strong><span>نفذ فحصًا أولًا.</span></div></div>
-    </section>
-
-    <section id="about" class="section">
-      <div class="page-title"><span>METHODOLOGY</span><h2>منهجية NOB</h2><p>نبدأ بالأمان والخصوصية قبل عمق الفحص.</p></div>
-      <div class="principles security-principles">
-        <div><strong>Passive أولًا</strong><span>لا استغلال للثغرات ولا تخطي للمصادقة.</span></div>
-        <div><strong>لا بيانات خاصة</strong><span>لا نحاول جمع كلمات مرور أو Tokens أو بيانات مستخدمين.</span></div>
-        <div><strong>عدم اليقين واضح</strong><span>إذا منع CORS قياس شيء، نعرضه كغير قابل للقياس بدل تخمين النتيجة.</span></div>
-        <div><strong>الإصلاح أهم من الاكتشاف</strong><span>كل Finding مهم يتبعه تفسير وتوصية دفاعية.</span></div>
-      </div>
-      <div class="panel methodology-panel"><h3>مراحل التطوير</h3><div class="roadmap"><span>01 Passive URL</span><span>02 Headers & TLS</span><span>03 DNS & Exposure</span><span>04 Risk Scoring</span><span>05 Reports</span><span>06 Backend Scanner مُصرّح</span></div></div>
-    </section>
-
-    <div id="toast" class="toast"></div>
-    <div class="footer">NOB — Cyber Defense Platform · للاستخدام الدفاعي والمصرح به فقط</div>
   </main>
+
+  <footer><span>NOB</span> · Unified Cyber Defense · الفحص المصرح به فقط</footer>
 </div>`;
 
 const $ = id => document.getElementById(id);
-let backendUrl=localStorage.getItem('nobBackendUrl')||'';
-let runnerUrl=localStorage.getItem('nobRunnerUrl')||'';
-const sections = [...document.querySelectorAll('.section')];
-let state = null;
+const stageNames = ['dns','web','network','security','correlation'];
 
-function showSection(id){
-  sections.forEach(s=>s.classList.toggle('active-section',s.id===id));
-  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.section===id));
-  window.scrollTo({top:0,behavior:'smooth'});
+function setEngine(ok, text=''){
+  const el=$('engineState');
+  el.classList.toggle('online',!!ok);
+  el.classList.toggle('offline-state',!ok);
+  el.querySelector('b').textContent=text || (ok?'جاهز':'غير متصل');
 }
-document.querySelectorAll('[data-section]').forEach(b=>b.addEventListener('click',()=>showSection(b.dataset.section)));
-document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showSection(b.dataset.go)));
-
-function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
-function setProgress(p,msg){
-  const percent=typeof p==='number'?p:(p?.percent??0);
-  $('bar').style.width=percent+'%';
-  $('statusText').textContent=msg;
-  const step=p?.step;
-  const map={dns:'stepDns',http:'stepHttp',headers:'stepHeaders',risk:'stepRisk'};
-  if(step&&map[step]){
-    const el=$(map[step]);
-    const steps=[['stepDns','dns'],['stepHttp','http'],['stepHeaders','headers'],['stepRisk','risk']];
-    steps.forEach(([id,key])=>{
-      const node=$(id);
-      const idx=steps.findIndex(x=>x[1]===key);
-      const cur=steps.findIndex(x=>x[1]===step);
-      node.classList.toggle('done',idx<cur);
-      node.classList.toggle('active',idx===cur);
-      node.querySelector('em').textContent=idx<cur?'تم':idx===cur?'جاري':'بانتظار';
-    });
+async function checkEngine(){
+  try{
+    const r=await fetch(RUNNER_URL+'/health',{cache:'no-store'});
+    const d=await r.json();
+    setEngine(!!d.ok,d.ok?'جاهز':'غير متصل');
+    return !!d.ok;
+  }catch{
+    setEngine(false,'غير متصل');
+    return false;
   }
 }
-function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+function stage(name,state='active',message=''){
+  document.querySelectorAll('[data-stage]').forEach(x=>{
+    const idx=stageNames.indexOf(x.dataset.stage), cur=stageNames.indexOf(name);
+    x.classList.toggle('active',x.dataset.stage===name && state!=='done');
+    x.classList.toggle('done',cur>=0 && idx<cur || (x.dataset.stage===name&&state==='done'));
+  });
+  if(message) $('scanMessage').textContent=message;
+}
+function progress(v){$('progressBar').style.width=Math.max(0,Math.min(100,v))+'%';}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function targetHost(value){try{return new URL(value).hostname}catch{return value}}
 
-function renderKaliCatalog(){
-  const q=($('kaliSearch').value||'').trim().toLowerCase();
-  const html=KALI_TOOL_GROUPS.map(group=>{
-    const tools=group.tools.filter(t=>!q||t.join(' ').toLowerCase().includes(q));
-    if(!tools.length)return '';
-    return '<section class="kali-group"><div class="kali-group-head"><div><span>'+esc(group.icon)+'</span><div><h3>'+esc(group.name)+'</h3><small>'+tools.length+' أداة مطابقة</small></div></div><b>'+esc(group.id.toUpperCase())+'</b></div><div class="kali-tools">'+tools.map(t=>{
-      const mode=t[3]==='safe'?'PUBLIC / SAFE':'ACTIVE / AUTHORIZED';
-      const cls=t[3]==='safe'?'safe':'active';
-      return '<article class="kali-tool"><div class="kali-tool-top"><span class="kali-tool-icon">›_</span><div><strong>'+esc(t[0])+'</strong><small>'+esc(t[2])+'</small></div><em class="'+cls+'">'+mode+'</em></div><p>'+esc(t[1])+'</p><div class="kali-tool-actions"><button type="button" class="kali-info" data-tool="'+esc(t[0])+'">معلومات</button><button type="button" class="kali-run" data-tool="'+esc(t[0])+'" data-mode="'+cls+'">فتح الأداة</button></div></article>';
-    }).join('')+'</div></section>';
-  }).join('');
-  $('kaliCatalog').innerHTML=html||'<div class="empty-state"><strong>لا توجد أداة مطابقة</strong><span>جرّب اسم أداة أو قسمًا آخر.</span></div>';
-  $('kaliCatalog').querySelectorAll('.kali-info').forEach(b=>b.addEventListener('click',()=>{
-    const name=b.dataset.tool;
-    window.open('https://www.kali.org/tools/?q='+encodeURIComponent(name),'_blank','noopener');
-  }));
-  $('kaliCatalog').querySelectorAll('.kali-run').forEach(b=>b.addEventListener('click',()=>{
-    const name=b.dataset.tool;
-    if(!runnerUrl){toast('اربط NOB Runner أولًا.');showSection('kali');return;}
-    if(b.dataset.mode==='active'){toast('الأداة '+name+' ستعمل على Runner للهدف المصرح به فقط.');}
-    const target=state?.target?.url?.toString()||$('target').value.trim();
-    if(!target){toast('نفّذ فحصًا أساسيًا أو أدخل هدفًا أولًا.');return;}
-    runRunnerTool(name,target);
-  }));
-  $('kaliCount').textContent=KALI_TOOL_COUNT;
-  $('kaliGroups').textContent=KALI_TOOL_GROUPS.length;
+function toolOutput(data,name){
+  const r=data?.results?.[name];
+  return r?.stdout||'';
+}
+function parseIps(text){
+  const set=new Set();
+  for(const m of text.matchAll(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g)) set.add(m[0]);
+  return [...set].slice(0,20);
+}
+function parsePorts(text){
+  const rows=[];
+  for(const line of text.split(/\r?\n/)){
+    const m=line.match(/^\s*(\d+)\/(tcp|udp)\s+(open|closed|filtered)\s+([^\s]+)(?:\s+(.*))?$/i);
+    if(m) rows.push({port:m[1],proto:m[2],state:m[3],service:m[4],version:m[5]||''});
+  }
+  return rows.slice(0,40);
+}
+function parseTech(text){
+  const found=new Set();
+  const summary=text.match(/Summary\s*:\s*(.+)/i)?.[1];
+  if(summary) summary.split(/,\s*/).forEach(x=>{const s=x.trim();if(s)found.add(s)});
+  for(const line of text.split(/\r?\n/)){
+    const m=line.match(/^\s*\[\s*([^\]]+)\s*\]/);
+    if(m) found.add(m[1].trim());
+  }
+  return [...found].slice(0,24);
+}
+function parseWaf(text){
+  const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const hit=lines.find(x=>/is behind|waf|firewall/i.test(x));
+  return hit ? [hit] : ['لم يتم تأكيد WAF من المحرك.'];
+}
+function parseTls(text){
+  const out=[];
+  const protos=[...text.matchAll(/SSLv[23]|TLSv1(?:\.0|\.1|\.2|\.3)?/gi)].map(m=>m[0]);
+  [...new Set(protos)].forEach(x=>out.push(x));
+  const cert=text.match(/Common Name:\s*([^\n]+)/i); if(cert) out.push('CN: '+cert[1].trim());
+  return out.length?out:['لم تتوفر نتيجة TLS.'];
+}
+function parseFindings(data){
+  const all=[];
+  const nikto=toolOutput(data,'nikto');
+  if(/OSVDB|vulnerab|outdated|interesting/i.test(nikto)) all.push('Nikto: توجد مؤشرات تستحق المراجعة.');
+  const nmap=toolOutput(data,'nmap');
+  if(/open\s+/i.test(nmap)) all.push('تم العثور على خدمات مفتوحة؛ راجع الخدمات والإصدارات.');
+  const waf=toolOutput(data,'wafw00f');
+  if(/is behind/i.test(waf)) all.push('تم التعرف على طبقة WAF.');
+  if(!all.length) all.push('لم تُستخرج ملاحظة عالية الثقة من الملخص الآلي.');
+  return all;
+}
+function renderResults(data,target){
+  const nmap=toolOutput(data,'nmap'), what=toolOutput(data,'whatweb'), dns=toolOutput(data,'dnsrecon');
+  const httpx=toolOutput(data,'httpx'), waf=toolOutput(data,'wafw00f'), tls=toolOutput(data,'sslscan');
+  const ips=[...new Set([...parseIps(nmap),...parseIps(dns),...parseIps(httpx)])];
+  const ports=parsePorts(nmap);
+  const tech=[...new Set([...parseTech(what),...parseTech(httpx)])];
+  const findings=parseFindings(data);
+  $('summaryGrid').innerHTML=[
+    ['الأصول',ips.length||'—','IP / DNS'],
+    ['المنافذ',ports.length,'OPEN SERVICES'],
+    ['التقنيات',tech.length,'FINGERPRINTS'],
+    ['المحركات',Object.values(data.results||{}).filter(x=>x.ok).length+'/'+Object.keys(data.results||{}).length,'ENGINES']
+  ].map(x=>`<div class="summary-card"><span>${x[0]}</span><strong>${esc(x[1])}</strong><small>${x[2]}</small></div>`).join('');
+  $('assetData').innerHTML=[
+    `<div><span>النطاق</span><b>${esc(targetHost(target))}</b></div>`,
+    `<div><span>IP</span><b>${esc(ips.join(' · ')||'لم يظهر')}</b></div>`,
+    `<div><span>النطاقات الفرعية</span><b>${esc(data.results?.subfinder?.stdout?.split(/\r?\n/).filter(Boolean).length||'—')}</b></div>`
+  ].join('');
+  $('techData').innerHTML=tech.length?tech.map(x=>`<span>${esc(x)}</span>`).join(''):'<em>لم تُحدد</em>';
+  $('wafData').innerHTML=parseWaf(waf).map(x=>`<div><span>WAF</span><b>${esc(x)}</b></div>`).join('');
+  $('portsData').innerHTML=ports.length?ports.map(p=>`<div class="port-row"><b>${p.port}/${p.proto}</b><span>${esc(p.service)}</span><small>${esc(p.version||p.state)}</small></div>`).join(''):'<em>لا توجد منافذ مفتوحة ظاهرة في الملخص.</em>';
+  $('tlsData').innerHTML=parseTls(tls).map(x=>`<div><span>TLS</span><b>${esc(x)}</b></div>`).join('');
+  $('findingData').innerHTML=findings.map(x=>`<div class="finding"><i>•</i><span>${esc(x)}</span></div>`).join('');
+  $('rawData').innerHTML=Object.entries(data.results||{}).map(([k,v])=>`<section><b>${esc(k)}</b><pre>${esc((v.stdout||v.stderr||'').slice(0,16000))}</pre></section>`).join('');
+  $('results').classList.remove('hidden');
 }
 
-async function runDeepScan(){
-  if(!runnerUrl){toast('اربط NOB Runner أولًا.');return;}
-  const target=state?.target?.url?.toString()||$('target').value.trim();
-  if(!target){toast('أدخل هدفًا أو نفّذ الفحص الأساسي أولًا.');showSection('scan');return;}
-  const btn=$('deepScanBtn'); btn.disabled=true; btn.textContent='جاري الفحص الشامل...'; showSection('kali');
-  $('deepScanProgress').querySelectorAll('div').forEach((x,i)=>x.classList.toggle('active',i===0));
+async function deepScan(target){
+  $('scanPanel').classList.remove('hidden'); $('results').classList.add('hidden'); $('offline').classList.add('hidden');
+  $('targetLabel').textContent=target;
+  progress(4); stage('dns','active','جمع معلومات DNS والاستطلاع العام…');
+  await new Promise(r=>setTimeout(r,250));
+  stage('web','active','بناء البصمة التقنية وطبقة الحماية…'); progress(22);
   try{
-    const r=await fetch(runnerUrl+'/deep-scan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({target})});
+    const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),600000);
+    const r=await fetch(RUNNER_URL+'/deep-scan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({target,timeout:90}),signal:controller.signal,cache:'no-store'});
+    clearTimeout(timer);
     const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok) throw new Error(data.detail||'تعذر تنفيذ الفحص الشامل');
-    const names=['dnsrecon','whatweb','nmap','nikto'];
-    names.forEach((n,i)=>{const el=$('deepScanProgress').querySelectorAll('div')[i];el.classList.remove('active');el.classList.add('done');});
-    $('deepScanProgress').querySelectorAll('div')[4].classList.add('done');
-    const cards=names.map(n=>{
-      const x=data.results[n]||{};
-      return '<article class="deep-result"><div><strong>'+esc(n)+'</strong><span class="'+(x.ok?'ok':'warn')+'">'+(x.ok?'اكتمل':'راجع النتيجة')+'</span></div><pre>'+esc(x.stdout||x.stderr||'لا توجد مخرجات')+'</pre></article>';
-    }).join('');
-    $('deepScanResult').innerHTML='<strong>اكتمل NOB Deep Scan</strong><span>'+esc(data.target)+' — تم جمع النتائج من '+names.length+' محركات.</span><div class="deep-results">'+cards+'</div>';
-    toast('اكتمل الفحص الشامل');
-  }catch(e){toast(e.message||'تعذر الفحص الشامل');}
-  finally{btn.disabled=false;btn.textContent='ابدأ الفحص الشامل';}
+    if(!r.ok||!data.ok) throw new Error(data.detail||data.error||'فشل محرك الفحص');
+    stage('network','active','تحليل الخدمات والمنافذ…'); progress(48);
+    await new Promise(r=>setTimeout(r,250));
+    stage('security','active','تحليل WAF وTLS وطبقة الويب…'); progress(68);
+    await new Promise(r=>setTimeout(r,250));
+    stage('correlation','active','ربط النتائج وإخراج صورة موحدة…'); progress(88);
+    renderResults(data,target);
+    progress(100); stage('correlation','done','اكتمل الفحص الشامل.');
+    $('resultBadge').textContent='اكتمل';
+    return true;
+  }catch(e){
+    progress(0);
+    $('scanPanel').classList.add('hidden');
+    $('offline').classList.remove('hidden');
+    $('offline').querySelector('p').textContent=e.name==='AbortError'?'انتهت مهلة الفحص.':'تعذر تشغيل محرك NOB: '+e.message;
+    return false;
+  }
 }
 
-async function runRunnerTool(tool,target){
-  const map={nmap:'nmap',whatweb:'whatweb',nikto:'nikto',dnsrecon:'dnsrecon'};
-  const key=map[tool];
-  if(!key){toast('هذه الأداة موجودة في الكتالوج لكن لم نفعّل تنفيذها بعد.');return;}
-  try{
-    toast('جاري تشغيل '+tool+' عبر NOB Runner...');
-    const r=await fetch(runnerUrl+'/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tool:key,target})});
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok) throw new Error(data.stderr||data.detail||'تعذر تنفيذ الأداة');
-    showSection('kali');
-    const box=$('kaliCatalog');
-    const panel=document.createElement('div');
-    panel.className='scan-card runner-result';
-    panel.innerHTML='<div class="panel-head"><div><h3>'+esc(tool)+' — النتيجة</h3><p>'+esc(data.target||target)+'</p></div><span class="ready">EXIT '+esc(data.exitCode)+'</span></div><pre>'+esc(data.stdout||data.stderr||'لا توجد مخرجات')+'</pre>';
-    box.prepend(panel);
-    toast('اكتمل '+tool);
-  }catch(e){toast(e.message||'تعذر الاتصال بـ NOB Runner');}
-}
-
-function renderFindings(findings=[]){
-  const box=$('findingsList');
-  if(!findings.length){box.innerHTML='<div class="empty-state compact"><strong>لم تظهر مخاطر قابلة للقياس</strong><span>قد يعني ذلك أن الفحوصات المتاحة لم ترصد مشكلة، وليس ضمانًا أن الموقع خالٍ من الثغرات.</span></div>';return;}
-  box.innerHTML=findings.map(f=>`<article class="finding severity-${esc(f.severity.toLowerCase())}">
-    <div class="finding-top"><span class="severity">${esc(f.severity)}</span><span class="finding-code">${esc(f.code)}</span></div>
-    <h3>${esc(f.title)}</h3><p>${esc(f.reason)}</p><div class="recommendation"><b>التوصية:</b> ${esc(f.recommendation)}</div>
-  </article>`).join('');
-}
-
-function renderExposure(items=[]){
-  const box=$('exposureGrid');
-  box.innerHTML=items.length?items.map(x=>`<div class="exposure-card"><span class="risk-dot ${esc(x.level.toLowerCase())}"></span><div><strong>${esc(x.name)}</strong><p>${esc(x.description)}</p></div><b>${esc(x.level)}</b></div>`).join(''):'<div class="empty-state compact"><strong>لا توجد مؤشرات إضافية</strong><span>لم يتم إثبات إفصاح إضافي من الفحوصات المتاحة.</span></div>';
-}
-
-function renderHeaders(headers=[]){
-  const box=$('headersTable');
-  box.innerHTML=headers.map(h=>`<div class="header-row"><div><strong>${esc(h.name)}</strong><span>${esc(h.description)}</span></div><b class="header-status ${h.present?'ok':'warn'}">${h.present?'PRESENT':'MISSING'}</b></div>`).join('');
-}
-
-function renderTech(tech=[]){
-  $('techGrid').innerHTML=tech.length?tech.map(t=>`<div class="tech-card"><span>${esc(t.category)}</span><strong>${esc(t.name)}</strong><small>${esc(t.evidence)}</small></div>`).join(''):'<div class="empty-state compact"><strong>لا توجد مؤشرات تقنية مؤكدة</strong><span>لم يتم تخمين تقنيات غير ظاهرة.</span></div>';
-}
-
-function renderReport(result){
-  $('reportCard').innerHTML=`<div class="report-head"><div><span>SECURITY ASSESSMENT</span><h3>${esc(result.target.display)}</h3><p>${new Date().toLocaleString('ar-SA')}</p></div><div class="score-ring"><strong>${result.score}</strong><small>/ 100</small></div></div>
-  <div class="report-grid"><div><b>${result.findings.length}</b><span>إجمالي الملاحظات</span></div><div><b>${result.summary.critical}</b><span>حرجة</span></div><div><b>${result.summary.high}</b><span>عالية</span></div><div><b>${result.summary.medium}</b><span>متوسطة</span></div></div>
-  <div class="report-disclaimer">هذا تقييم دفاعي محدود بنطاق الفحوصات المتاحة في المتصفح. لا يعتبر اختبار اختراق ولا يثبت خلو الموقع من الثغرات.</div>`;
-}
-
-async function runScan(){
-  const raw=$('target').value.trim();
+$('scanForm').addEventListener('submit',async e=>{
+  e.preventDefault(); $('inputError').textContent='';
   let target;
-  try{target=normalizeTarget(raw);}catch(e){toast(e.message);return;}
-  $('scanBtn').disabled=true;$('scanBtn').textContent='جاري الفحص...';showSection('overview');setProgress(8,'تحقق من الهدف...');
-  try{
-    state=await runPassiveAssessment(target,p=>setProgress(p,'جاري '+p.label+'...'));
-    $('score').textContent=state.score;
-    $('critical').textContent=state.summary.critical;
-    $('high').textContent=state.summary.high;
-    $('medium').textContent=state.summary.medium;
-    $('low').textContent=state.summary.low;
-    $('checks').textContent=state.checks;
-    $('lastResult').innerHTML=`<div class="result-score"><strong>${state.score}</strong><span>/100</span></div><b>${esc(state.target.display)}</b><small>${esc(state.statusMessage)}</small>`;
-    $('targetSummary').innerHTML=`<div><span>HOST</span><strong>${esc(state.target.host)}</strong></div><div><span>PROTOCOL</span><strong>${esc(state.target.protocol.toUpperCase())}</strong></div><div><span>STATUS</span><strong>${esc(state.statusMessage)}</strong></div>`;
-    renderFindings(state.findings);renderExposure(state.exposure);renderHeaders(state.headers);renderTech(state.technologies);renderReport(state);
-    ['stepDns','stepHttp','stepHeaders','stepRisk'].forEach(id=>{const e=$(id);e.classList.remove('active');e.classList.add('done');e.querySelector('em').textContent='تم';});
-    setProgress(100,'اكتمل الفحص الدفاعي');
-    toast('اكتمل الفحص');
-  }catch(e){setProgress(0,'تعذر إكمال الفحص');toast(e.message||'حدث خطأ غير متوقع');}
-  finally{$('scanBtn').disabled=false;$('scanBtn').textContent='ابدأ الفحص';}
-}
-
-$('scanBtn').addEventListener('click',runScan);
-
-$('backendUrl').value=backendUrl;
-$('backendStatus').innerHTML=backendUrl?'<b>حالة الخادم:</b> مربوط — سيتم استخدام NOB Backend.':'<b>حالة الخادم:</b> غير مربوط — سيستخدم الفحص المحلي للمتصفح.';
-$('saveBackend').addEventListener('click',()=>{
-  const value=$('backendUrl').value.trim().replace(/\/$/,'');
-  if(value){backendUrl=value;localStorage.setItem('nobBackendUrl',value);$('backendStatus').innerHTML='<b>حالة الخادم:</b> مربوط — '+esc(value);toast('تم حفظ رابط NOB Backend');}
-  else{backendUrl='';localStorage.removeItem('nobBackendUrl');$('backendStatus').innerHTML='<b>حالة الخادم:</b> غير مربوط — سيستخدم الفحص المحلي للمتصفح.';toast('تم إلغاء ربط الخادم');}
+  try{target=normalizeTarget($('target').value.trim());}
+  catch(err){$('inputError').textContent=err.message||'أدخل رابطًا صحيحًا يبدأ بـ https://';return;}
+  $('scanBtn').disabled=true;$('scanBtn').innerHTML='جاري الفحص… <span>◌</span>';
+  const online=await checkEngine();
+  if(!online){$('offline').classList.remove('hidden');$('scanBtn').disabled=false;$('scanBtn').innerHTML='ابدأ الفحص الشامل <span>←</span>';return;}
+  await deepScan(target.url);
+  $('scanBtn').disabled=false;$('scanBtn').innerHTML='ابدأ الفحص الشامل <span>←</span>';
 });
-
-
-let discoveryState=null;
-function renderDiscoverySearch(){
-  const q=($('discoverySearch').value||'').trim().toLowerCase();
-  if(!discoveryState){$('discoverySearchMeta').textContent='لم يتم استخراج بيانات بعد.';return;}
-  const all=[
-    ...(discoveryState.files||[]).map(x=>({...x,kindLabel:'FILE CONTENT'})),
-    ...(discoveryState.resources||[]).map(x=>({...x,kindLabel:'FILE'})),
-    ...(discoveryState.endpoints||[]).map(x=>({...x,kindLabel:'ENDPOINT'})),
-    ...(discoveryState.forms||[]).map(x=>({...x,kindLabel:'FORM'})),
-    ...(discoveryState.pages||[]).map(url=>({url,method:'GET',kindLabel:'PAGE',source:'public page'}))
-  ];
-  const filtered=q?all.filter(x=>JSON.stringify(x).toLowerCase().includes(q)):all;
-  $('discoverySearchMeta').textContent='النتائج: '+filtered.length+' من '+all.length+(q?' — البحث في الروابط والـ endpoints والنماذج ومحتوى الملفات العامة':' — جميع البيانات المستخرجة');
-  $('discoveryTable').innerHTML=filtered.slice(0,300).map(x=>{
-    const content=x.content||'';
-    const idx=q&&content.toLowerCase().indexOf(q);
-    const snippet=idx>=0?content.slice(Math.max(0,idx-120),idx+q.length+220):'';
-    return '<article class="finding severity-low"><div class="finding-top"><span class="severity">'+esc(x.kindLabel)+'</span><span class="finding-code">'+esc(x.method||'GET')+'</span></div><h3>'+esc(x.url||'')+'</h3><p>'+esc(x.type||x.kind||'Public data')+'</p>'+(snippet?'<div class="code-snippet">'+esc(snippet)+'</div>':'')+'<div class="recommendation"><b>المصدر:</b> '+esc(x.source||'')+'</div></article>';
-  }).join('') || '<div class="empty-state compact"><strong>لا توجد نتائج</strong><span>جرّب كلمة بحث أخرى.</span></div>';
-}
-
-$('discoveryBtn').addEventListener('click',async()=>{
-  if(!state?.target){toast('نفّذ فحصًا أساسيًا أولًا.');return;}
-  const b=$('discoveryBtn');b.disabled=true;b.textContent='جاري الاستكشاف...';showSection('discovery');$('discoverySearch').value='';
-  try{
-    const r=await discoverPublicDataSurface(state.target,p=>setProgress(p,p.label));
-    if(!r.ok) throw new Error(r.error||'تعذر الاستكشاف');
-    $('discoveryResult').innerHTML='<strong>اكتمل الاستكشاف العام</strong><span>'+esc('الملفات: '+r.counts.resources+' · مؤشرات endpoints: '+r.counts.endpoints+' · النماذج: '+r.counts.forms)+'</span>';
-    discoveryState=r;
-    renderDiscoverySearch();
-    renderDiscoverySearch();
-    toast('اكتمل استكشاف البيانات العامة');
-  }catch(e){toast(e.message||'تعذر الاستكشاف');}
-  finally{b.disabled=false;b.textContent='ابدأ الاستكشاف';}
-});
-
-$('activeBtn').addEventListener('click',async()=>{
-  if(!state?.target){toast('نفّذ فحصًا أساسيًا أولًا.');return;}
-  const b=$('activeBtn');b.disabled=true;b.textContent='جاري التحقق...';showSection('active');
-  try{
-    if(backendUrl){
-      const r=await runBackendActiveAssessment(state.target,backendUrl);
-      const entries=Object.entries(r.results||{});
-      $('activeResult').innerHTML='<strong>اكتمل التحقق عبر NOB Backend</strong><span>هذه النتائج مقروءة من الخادم، لذلك لا تعتمد على CORS في متصفحك.</span><div class="active-checks">'+entries.map(([method,x])=>'<div class="active-check"><b>'+esc(method)+'</b><span class="active-status '+(x.status?'ok':'blocked')+'">'+esc(x.status??x.error??'غير متاح')+'</span><small>'+esc((x.allow?'Allow: '+x.allow+' · ':'')+(x.server?'Server: '+x.server:'')+(x.finalUrl?' · '+x.finalUrl:''))+'</small></div>').join('')+'</div>';
-      toast('اكتمل التحقق عبر الخادم');
-    }else{
-      const r=await runAuthorizedActiveAssessment(state.target);
-      renderFindings([...(state.findings||[]),...(r.findings||[])]);
-      $('activeResult').innerHTML='<strong>اكتمل التحقق من المتصفح</strong><span>عند ظهور CORS / Browser restriction استخدم NOB Backend للحصول على القراءة الخادمية.</span><div class="active-checks">'+r.checks.map(x=>'<div class="active-check"><b>'+esc(x.method)+'</b><span class="active-status '+(x.status?'ok':'blocked')+'">'+esc(x.status??(x.error==='cors'?'CORS / Browser restriction':x.error==='timeout'?'TIMEOUT':'غير متاح'))+'</span><small>'+esc(x.allow?'Allow: '+x.allow:'لا يمكن قراءة الرؤوس من المتصفح عند منع CORS')+'</small></div>').join('')+'</div>';
-      toast('اكتمل التحقق من المتصفح');
-    }
-  }catch(e){toast(e.message||'تعذر التحقق');}
-  finally{b.disabled=false;b.textContent='ابدأ التحقق النشط';}
-});
-$('target').addEventListener('keydown',e=>{if(e.key==='Enter')runScan();});
-$('reset').addEventListener('click',()=>location.reload());
-
-$('discoverySearch').addEventListener('input',renderDiscoverySearch);
-$('clearDiscoverySearch').addEventListener('click',()=>{$('discoverySearch').value='';renderDiscoverySearch();});
-$('deepScanBtn').addEventListener('click',runDeepScan);
-$('kaliSearch').addEventListener('input',renderKaliCatalog);
-$('kaliClear').addEventListener('click',()=>{$('kaliSearch').value='';renderKaliCatalog();});
-renderKaliCatalog();
-$('runnerUrl').value=runnerUrl;
-$('runnerStatus').innerHTML=runnerUrl?'<b>حالة Runner:</b> مربوط — يمكن تشغيل الأدوات المفعلة.':'<b>حالة Runner:</b> غير مربوط.';
-$('saveRunner').addEventListener('click',()=>{const v=$('runnerUrl').value.trim().replace(/\/$/,'');runnerUrl=v;v?localStorage.setItem('nobRunnerUrl',v):localStorage.removeItem('nobRunnerUrl');$('runnerStatus').innerHTML=v?'<b>حالة Runner:</b> مربوط — '+esc(v):'<b>حالة Runner:</b> غير مربوط.';toast(v?'تم حفظ رابط NOB Runner':'تم إلغاء ربط Runner');});
+$('newScan').addEventListener('click',()=>{$('target').focus();window.scrollTo({top:0,behavior:'smooth'});});
+$('retryEngine').addEventListener('click',checkEngine);
+checkEngine();
