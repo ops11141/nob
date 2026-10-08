@@ -60,3 +60,28 @@ async def run(job:Job):
 
 @app.options("/run")
 async def options(): return {"ok":True}
+
+class DeepJob(BaseModel):
+    target:str
+    timeout:int=Field(default=75,ge=10,le=180)
+
+async def execute_tool(name,target,timeout):
+    spec=TOOLS[name]
+    cmd=[spec["bin"],*spec["args"],target]
+    try:
+        p=await asyncio.create_subprocess_exec(*cmd,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+        out,err=await asyncio.wait_for(p.communicate(),timeout=timeout)
+        return {"ok":p.returncode==0,"exitCode":p.returncode,"stdout":out.decode("utf-8","replace")[-30000:],"stderr":err.decode("utf-8","replace")[-8000:]}
+    except asyncio.TimeoutError:
+        p.kill()
+        return {"ok":False,"exitCode":408,"stdout":"","stderr":"Tool execution timed out"}
+
+@app.post("/deep-scan")
+async def deep_scan(job:DeepJob):
+    try: target=public_target(job.target)
+    except ValueError as e: raise HTTPException(400,str(e))
+    results={}
+    # One orchestrated job: fixed, non-destructive public assessment tools only.
+    for name in ("dnsrecon","whatweb","nmap","nikto"):
+        results[name]=await execute_tool(name,target,job.timeout)
+    return {"ok":True,"target":target,"scope":"authorized-public-assessment","results":results}
