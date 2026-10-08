@@ -1,9 +1,8 @@
 FROM kalilinux/kali-rolling
 
-# Pin the build to Kali's official CDN instead of the redirector.
-# This avoids mirror-selection redirect loops during Docker builds.
-RUN printf '%s\n' 'deb http://kali.download/kali kali-rolling main contrib non-free non-free-firmware' > /etc/apt/sources.list \
- && rm -f /etc/apt/sources.list.d/kali.sources \
+# Replace the base image's redirector source with a direct HTTPS CDN source.
+RUN rm -f /etc/apt/sources.list.d/* /etc/apt/sources.list \
+ && printf '%s\n' 'deb https://kali.download/kali kali-rolling main contrib non-free non-free-firmware' > /etc/apt/sources.list \
  && apt-get clean \
  && apt-get update -o Acquire::Retries=5 \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
