@@ -195,26 +195,16 @@ def db_validate(job):
 
 async def db_query(job):
     engine,host,q=db_validate(job)
-    env=os.environ.copy()
-    if engine in {"mysql","mariadb"}:
-        port=job.port or 3306; env["MYSQL_PWD"]=job.password
-        cmd=["mysql","--batch","--raw","--skip-column-names","--connect-timeout",str(min(job.timeout,30)),"-h",host,"-P",str(port),"-u",job.username]
-        if job.database: cmd += ["-D",job.database]
-        cmd += ["-e",q]
-    else:
-        port=job.port or 5432; env["PGPASSWORD"]=job.password
-        cmd=["psql","-X","-A","-F","\t","-P","pager=off","-h",host,"-p",str(port),"-U",job.username]
-        if job.database: cmd += ["-d",job.database]
-        cmd += ["-c",q]
+    import urllib.request
+    payload=json.dumps({"engine":engine,"host":host,"port":job.port,"username":job.username,"password":job.password,"database":job.database,"query":q,"timeout":job.timeout,"max_rows":job.max_rows}).encode()
+    def call():
+        req=urllib.request.Request("http://db-gateway:8788/query",data=payload,headers={"Content-Type":"application/json"},method="POST")
+        with urllib.request.urlopen(req,timeout=job.timeout+8) as r:
+            return json.loads(r.read().decode("utf-8","replace"))
     try:
-        p=await asyncio.create_subprocess_exec(*cmd,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE,env=env)
-        out,err=await asyncio.wait_for(p.communicate(),timeout=job.timeout)
-        lines=out.decode("utf-8","replace").splitlines()
-        return {"ok":p.returncode==0,"engine":engine,"host":host,"rows":lines[:job.max_rows],"rowCount":min(len(lines),job.max_rows),"stderr":err.decode("utf-8","replace")[-4000:],"scope":"authorized-read-only-database-access"}
-    except asyncio.TimeoutError:
-        try:p.kill()
-        except ProcessLookupError:pass
-        return {"ok":False,"engine":engine,"error":"Database query timed out","scope":"authorized-read-only-database-access"}
+        return await asyncio.to_thread(call)
+    except Exception as e:
+        return {"ok":False,"engine":engine,"host":host,"error":str(e)[:500],"scope":"authorized-read-only-database-access"}
 
 @app.post("/public-surface")
 async def public_surface(job:DeepJob):
@@ -240,7 +230,7 @@ async def db_query_route(job:DBJob):
 
 @app.get("/health")
 async def health():
-    return {"ok":True,"service":"NOB Runner","version":"2.2","tools":sorted(TOOLS),"modules":["public-surface","authorized-ftp-browser","authorized-read-only-database"]}
+    return {"ok":True,"service":"NOB Runner","version":"2.2","tools":sorted(TOOLS),"modules":["public-surface","authorized-ftp-browser","authorized-read-only-database","isolated-db-gateway"]}
 
 @app.post("/run")
 async def run(job:Job):
