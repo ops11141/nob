@@ -2,7 +2,7 @@ const styleLink = document.createElement('link');
 styleLink.rel = 'stylesheet';
 styleLink.href = new URL('./styles.css', import.meta.url).href;
 document.head.appendChild(styleLink);
-import { normalizeTarget, runPassiveAssessment, runAuthorizedActiveAssessment, discoverPublicDataSurface } from './security.js';
+import { normalizeTarget, runPassiveAssessment, runAuthorizedActiveAssessment, runBackendActiveAssessment, discoverPublicDataSurface } from './security.js';
 
 const app = document.querySelector('#app');
 
@@ -97,7 +97,9 @@ app.innerHTML = `
     <section id="active" class="section">
       <div class="page-title"><span>ACTIVE VALIDATION</span><h2>التحقق النشط</h2><p>طبقة اختبار نشطة غير تخريبية للتأكد من بعض المؤشرات بدل الاعتماد على التخمين.</p></div>
       <div class="scan-card">
-        <div class="active-mode"><div><strong>Authorized Active Validation</strong><span>HEAD / OPTIONS + تحليل الاستجابة — بدون تسجيل دخول أو تغيير بيانات أو تنفيذ استغلال.</span></div><button id="activeBtn">ابدأ التحقق النشط</button></div>
+        <div class="target-input backend-input"><label>NOB Backend</label><input id="backendUrl" type="url" inputmode="url" placeholder="https://nob-backend-scanner.example.workers.dev" autocomplete="off"><button id="saveBackend" type="button">حفظ الربط</button></div>
+        <div id="backendStatus" class="scan-note"><b>حالة الخادم:</b> غير مربوط — سيستخدم الفحص المحلي للمتصفح.</div>
+        <div class="active-mode"><div><strong>Authorized Active Validation</strong><span>الخادم يقرأ HEAD / OPTIONS / GET من خارج المتصفح، بدون تسجيل دخول أو تغيير بيانات أو تنفيذ استغلال.</span></div><button id="activeBtn">ابدأ التحقق النشط</button></div>
         <div id="activeResult" class="empty-state compact"><strong>لم يبدأ التحقق</strong><span>نفّذ فحصًا أساسيًا أولًا ثم شغّل التحقق النشط على نفس الهدف.</span></div>
       </div>
     </section>
@@ -157,6 +159,7 @@ app.innerHTML = `
 </div>`;
 
 const $ = id => document.getElementById(id);
+let backendUrl=localStorage.getItem('nobBackendUrl')||'';
 const sections = [...document.querySelectorAll('.section')];
 let state = null;
 
@@ -244,6 +247,14 @@ async function runScan(){
 
 $('scanBtn').addEventListener('click',runScan);
 
+$('backendUrl').value=backendUrl;
+$('backendStatus').innerHTML=backendUrl?'<b>حالة الخادم:</b> مربوط — سيتم استخدام NOB Backend.':'<b>حالة الخادم:</b> غير مربوط — سيستخدم الفحص المحلي للمتصفح.';
+$('saveBackend').addEventListener('click',()=>{
+  const value=$('backendUrl').value.trim().replace(/\/$/,'');
+  if(value){backendUrl=value;localStorage.setItem('nobBackendUrl',value);$('backendStatus').innerHTML='<b>حالة الخادم:</b> مربوط — '+esc(value);toast('تم حفظ رابط NOB Backend');}
+  else{backendUrl='';localStorage.removeItem('nobBackendUrl');$('backendStatus').innerHTML='<b>حالة الخادم:</b> غير مربوط — سيستخدم الفحص المحلي للمتصفح.';toast('تم إلغاء ربط الخادم');}
+});
+
 
 let discoveryState=null;
 function renderDiscoverySearch(){
@@ -285,10 +296,17 @@ $('activeBtn').addEventListener('click',async()=>{
   if(!state?.target){toast('نفّذ فحصًا أساسيًا أولًا.');return;}
   const b=$('activeBtn');b.disabled=true;b.textContent='جاري التحقق...';showSection('active');
   try{
-    const r=await runAuthorizedActiveAssessment(state.target);
-    renderFindings([...(state.findings||[]),...(r.findings||[])]);
-    $('activeResult').innerHTML='<strong>اكتمل التحقق النشط</strong><span>إذا ظهر CORS / Browser restriction فهذا من المتصفح نفسه وليس حكمًا بأن الموقع محجوب. نتائج HTTP المقروءة في الفحص الأساسي تبقى هي المرجع.</span><div class="active-checks">'+r.checks.map(x=>'<div class="active-check"><b>'+esc(x.method)+'</b><span class="active-status '+(x.status?'ok':'blocked')+'">'+esc(x.status??(x.error==='cors'?'CORS / Browser restriction':x.error==='timeout'?'TIMEOUT':'غير متاح'))+'</span><small>'+esc(x.allow?'Allow: '+x.allow:'لا يمكن قراءة الرؤوس من المتصفح عند منع CORS')+'</small></div>').join('')+'</div>';
-    toast('اكتمل التحقق النشط غير التخريبي');
+    if(backendUrl){
+      const r=await runBackendActiveAssessment(state.target,backendUrl);
+      const entries=Object.entries(r.results||{});
+      $('activeResult').innerHTML='<strong>اكتمل التحقق عبر NOB Backend</strong><span>هذه النتائج مقروءة من الخادم، لذلك لا تعتمد على CORS في متصفحك.</span><div class="active-checks">'+entries.map(([method,x])=>'<div class="active-check"><b>'+esc(method)+'</b><span class="active-status '+(x.status?'ok':'blocked')+'">'+esc(x.status??x.error??'غير متاح')+'</span><small>'+esc((x.allow?'Allow: '+x.allow+' · ':'')+(x.server?'Server: '+x.server:'')+(x.finalUrl?' · '+x.finalUrl:''))+'</small></div>').join('')+'</div>';
+      toast('اكتمل التحقق عبر الخادم');
+    }else{
+      const r=await runAuthorizedActiveAssessment(state.target);
+      renderFindings([...(state.findings||[]),...(r.findings||[])]);
+      $('activeResult').innerHTML='<strong>اكتمل التحقق من المتصفح</strong><span>عند ظهور CORS / Browser restriction استخدم NOB Backend للحصول على القراءة الخادمية.</span><div class="active-checks">'+r.checks.map(x=>'<div class="active-check"><b>'+esc(x.method)+'</b><span class="active-status '+(x.status?'ok':'blocked')+'">'+esc(x.status??(x.error==='cors'?'CORS / Browser restriction':x.error==='timeout'?'TIMEOUT':'غير متاح'))+'</span><small>'+esc(x.allow?'Allow: '+x.allow:'لا يمكن قراءة الرؤوس من المتصفح عند منع CORS')+'</small></div>').join('')+'</div>';
+      toast('اكتمل التحقق من المتصفح');
+    }
   }catch(e){toast(e.message||'تعذر التحقق');}
   finally{b.disabled=false;b.textContent='ابدأ التحقق النشط';}
 });
