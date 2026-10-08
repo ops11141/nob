@@ -1,5 +1,5 @@
 import './styles.css';
-import { normalizeTarget, runPassiveAssessment } from './security.js';
+import { normalizeTarget, runPassiveAssessment, runAuthorizedActiveAssessment } from './security.js';
 
 const app = document.querySelector('#app');
 
@@ -10,6 +10,7 @@ app.innerHTML = `
     <nav class="nav">
       <button class="nav-item active" data-section="overview">⌂ الرئيسية</button>
       <button class="nav-item" data-section="scan">◉ فحص موقع</button>
+      <button class="nav-item" data-section="active">⚡ تحقق نشط</button>
       <button class="nav-item" data-section="findings">⚠ النتائج والمخاطر</button>
       <button class="nav-item" data-section="exposure">◈ البيانات المكشوفة</button>
       <button class="nav-item" data-section="headers">▣ HTTP / Headers</button>
@@ -87,6 +88,14 @@ app.innerHTML = `
       </div>
       <div class="scan-note"><b>ملاحظة تقنية:</b> نسخة GitHub Pages تعمل داخل المتصفح، لذلك بعض اختبارات HTTP قد يمنعها CORS. عندها تُسجل كـ «غير قابل للقياس» بدل اعتبار الموقع ضعيفًا.</div>
       <div id="targetSummary" class="target-summary"></div>
+    </section>
+
+    <section id="active" class="section">
+      <div class="page-title"><span>ACTIVE VALIDATION</span><h2>التحقق النشط</h2><p>طبقة اختبار نشطة غير تخريبية للتأكد من بعض المؤشرات بدل الاعتماد على التخمين.</p></div>
+      <div class="scan-card">
+        <div class="active-mode"><div><strong>Authorized Active Validation</strong><span>HEAD / OPTIONS + تحليل الاستجابة — بدون تسجيل دخول أو تغيير بيانات أو تنفيذ استغلال.</span></div><button id="activeBtn">ابدأ التحقق النشط</button></div>
+        <div id="activeResult" class="empty-state compact"><strong>لم يبدأ التحقق</strong><span>نفّذ فحصًا أساسيًا أولًا ثم شغّل التحقق النشط على نفس الهدف.</span></div>
+      </div>
     </section>
 
     <section id="findings" class="section">
@@ -198,5 +207,16 @@ async function runScan(){
 }
 
 $('scanBtn').addEventListener('click',runScan);
+$('activeBtn').addEventListener('click',async()=>{
+  if(!state?.target){toast('نفّذ فحصًا أساسيًا أولًا.');return;}
+  const b=$('activeBtn');b.disabled=true;b.textContent='جاري التحقق...';showSection('active');
+  try{
+    const r=await runAuthorizedActiveAssessment(state.target);
+    renderFindings([...(state.findings||[]),...(r.findings||[])]);
+    $('activeResult').innerHTML='<strong>اكتمل التحقق النشط</strong><span>'+esc(r.checks.map(x=>x.method+': '+(x.status??x.error)).join(' · '))+'</span>';
+    toast('اكتمل التحقق النشط غير التخريبي');
+  }catch(e){toast(e.message||'تعذر التحقق');}
+  finally{b.disabled=false;b.textContent='ابدأ التحقق النشط';}
+});
 $('target').addEventListener('keydown',e=>{if(e.key==='Enter')runScan();});
 $('reset').addEventListener('click',()=>location.reload());
