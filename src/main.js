@@ -287,7 +287,7 @@ $('activeBtn').addEventListener('click',async()=>{
   try{
     const r=await runAuthorizedActiveAssessment(state.target);
     renderFindings([...(state.findings||[]),...(r.findings||[])]);
-    $('activeResult').innerHTML='<strong>اكتمل التحقق النشط</strong><span>النتائج التفصيلية لكل طلب:</span><div class="active-checks">'+r.checks.map(x=>'<div class="active-check"><b>'+esc(x.method)+'</b><span class="active-status '+(x.status?'ok':'blocked')+'">'+esc(x.status??'BLOCKED / '+(x.error||'غير متاح'))+'</span><small>'+esc(x.allow?'Allow: '+x.allow:'بدون Allow header')+'</small></div>').join('')+'</div>';
+    $('activeResult').innerHTML='<strong>اكتمل التحقق النشط</strong><span>إذا ظهر CORS / Browser restriction فهذا من المتصفح نفسه وليس حكمًا بأن الموقع محجوب. نتائج HTTP المقروءة في الفحص الأساسي تبقى هي المرجع.</span><div class="active-checks">'+r.checks.map(x=>'<div class="active-check"><b>'+esc(x.method)+'</b><span class="active-status '+(x.status?'ok':'blocked')+'">'+esc(x.status??(x.error==='cors'?'CORS / Browser restriction':x.error==='timeout'?'TIMEOUT':'غير متاح'))+'</span><small>'+esc(x.allow?'Allow: '+x.allow:'لا يمكن قراءة الرؤوس من المتصفح عند منع CORS')+'</small></div>').join('')+'</div>';
     toast('اكتمل التحقق النشط غير التخريبي');
   }catch(e){toast(e.message||'تعذر التحقق');}
   finally{b.disabled=false;b.textContent='ابدأ التحقق النشط';}
