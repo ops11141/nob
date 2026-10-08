@@ -1,8 +1,12 @@
-import { Dwg_File_Type, LibreDwg } from '@mlightcad/libredwg-web';
-
 let enginePromise;
+
 export async function getEngine(){
-  if(!enginePromise) enginePromise=LibreDwg.create(import.meta.env.BASE_URL+'assets');
+  if(!enginePromise){
+    enginePromise=(async()=>{
+      const mod=await import('@mlightcad/libredwg-web');
+      return mod.LibreDwg.create(import.meta.env.BASE_URL+'assets');
+    })();
+  }
   return enginePromise;
 }
 
@@ -36,6 +40,7 @@ export async function inspectDwg(file,onProgress=()=>{}){
   const engine=await getEngine();
 
   onProgress(35,'فك ترميز DWG');
+  const { Dwg_File_Type }=await import('@mlightcad/libredwg-web');
   const data=engine.dwg_read_data(buffer,Dwg_File_Type.DWG);
   if(!data) throw new Error('تعذر فك ملف DWG.');
 
