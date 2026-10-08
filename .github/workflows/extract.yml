@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'source/GEO.dwg'
+      - 'source/GEO.dwg.gz'
 
 permissions:
   contents: write
@@ -19,6 +20,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Restore compressed DWG source
+        run: |
+          if [ -f source/GEO.dwg.gz ]; then
+            gzip -dc source/GEO.dwg.gz > source/GEO.dwg
+          fi
+          test -s source/GEO.dwg
 
       - run: npm install
 
