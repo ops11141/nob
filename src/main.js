@@ -83,6 +83,25 @@ app.innerHTML = `
         <div id="ftpStatus" class="scan-message">لم يتم الاتصال بعد.</div>
         <div id="ftpData" class="intel-grid"></div>
       </section>
+
+      <section id="dbBrowser" class="public-intel">
+        <div class="result-head">
+          <div><span>AUTHORIZED DATABASE ACCESS</span><h2>استعراض قاعدة البيانات</h2></div>
+          <button id="dbQueryBtn" type="button">تنفيذ قراءة</button>
+        </div>
+        <p class="intel-note">للوصول المصرح به فقط. الاتصال يتطلب حسابًا تملكه. يسمح NOB بعمليات القراءة فقط: SELECT / SHOW / DESCRIBE / EXPLAIN، ولا يدعم تجاوز الدخول أو تعديل البيانات.</p>
+        <div class="ftp-form">
+          <select id="dbEngine"><option value="mysql">MySQL</option><option value="mariadb">MariaDB</option><option value="postgresql">PostgreSQL</option></select>
+          <input id="dbHost" type="text" placeholder="db.example.com" autocomplete="off">
+          <input id="dbPort" type="number" value="3306" min="1" max="65535">
+          <input id="dbName" type="text" placeholder="Database" autocomplete="off">
+          <input id="dbUser" type="text" placeholder="Username" autocomplete="off">
+          <input id="dbPass" type="password" placeholder="Password" autocomplete="new-password">
+        </div>
+        <textarea id="dbQuery" rows="4" placeholder="SELECT * FROM table LIMIT 50"></textarea>
+        <div id="dbStatus" class="scan-message">لم يتم الاتصال بقاعدة البيانات بعد.</div>
+        <div id="dbData" class="intel-grid"></div>
+      </section>
     </section>
 
     <section id="offline" class="offline hidden">
