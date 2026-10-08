@@ -429,21 +429,33 @@ $('dbQueryBtn').addEventListener('click',async()=>{
 
 $('kaliToolsBtn').addEventListener('click',async()=>{ $('kaliToolsPage').classList.remove('hidden'); $('scanPanel').classList.add('hidden'); $('results').classList.add('hidden'); window.scrollTo({top:0,behavior:'smooth'}); });
 $('kaliBackBtn').addEventListener('click',()=>{ $('kaliToolsPage').classList.add('hidden'); window.scrollTo({top:0,behavior:'smooth'}); });
-const kaliMeta={
- proxy:{title:'Burp Suite',desc:'واجهة Proxy وتحليل طلبات HTTP/HTTPS',kind:'info'},
- sql:{title:'SQLmap',desc:'اختبار مؤشرات SQL Injection على هدف مصرح',kind:'scan'},
- wp:{title:'WPScan',desc:'استطلاع مكونات WordPress العامة',kind:'scan'},
- zap:{title:'OWASP ZAP',desc:'واجهة فحص تطبيقات الويب وتحليل النتائج',kind:'scan'},
- meta:{title:'Metasploit',desc:'واجهة معلومات الإطار والوحدات دون تشغيل استغلال تلقائي',kind:'info'},
- hydra:{title:'Hydra',desc:'واجهة حالة الأداة؛ لا يتم تشغيل تخمين كلمات المرور',kind:'info'}
-};
+const kaliMeta={proxy:{title:'Burp Suite',desc:'HTTP/HTTPS Proxy workspace'},sql:{title:'SQLmap',desc:'SQL injection assessment workspace'},wp:{title:'WPScan',desc:'WordPress assessment workspace'},zap:{title:'OWASP ZAP',desc:'Web application assessment workspace'},meta:{title:'Metasploit',desc:'Framework information workspace'},hydra:{title:'Hydra',desc:'Authentication assessment workspace'}};
 let activeKaliTool='proxy';
-const kaliPanel=()=>{const m=kaliMeta[activeKaliTool];$('kaliToolTitle').textContent=m.title;$('kaliToolState').textContent='جاهز';
-$('kaliToolPanel').innerHTML='<h3>'+m.title+'</h3><p>'+m.desc+'</p><div class="kali-feature-grid"><span>Engine <b>Runner</b></span><span>Mode <b>Authorized</b></span><span>Status <b data-status-live>Ready</b></span></div>';};
+function kaliPanel(){
+ const m=kaliMeta[activeKaliTool];
+ $('kaliToolTitle').textContent=m.title;
+ $('kaliToolState').textContent='READY';
+ $('kaliToolPanel').innerHTML='<div class="kali-native-head"><span>KALI TOOL</span><h3>'+m.title+'</h3><p>'+m.desc+'</p></div><div class="kali-native-fields"><label>Target<input id="kaliNativeTarget" value="'+($('kaliTarget')?.value||$('target')?.value||'')+'" placeholder="https://example.com"></label><label>Timeout<input id="kaliNativeTimeout" type="number" value="120" min="10" max="180"></label></div><div class="kali-native-actions"><button type="button" id="kaliNativeRun">Run</button><button type="button" id="kaliNativeStatus">Status</button><button type="button" id="kaliNativeClear">Clear</button></div><div class="kali-native-meta"><span>ENGINE <b>Runner</b></span><span>PROFILE <b>Authorized</b></span><span>OUTPUT <b>Console</b></span></div>';
+ $('kaliNativeRun').onclick=kaliRunNative;
+ $('kaliNativeStatus').onclick=kaliStatusNative;
+ $('kaliNativeClear').onclick=()=>{$('kaliToolOutput').textContent='NOB KALI CONSOLE\nCleared.';};
+}
+async function kaliRunNative(){
+ const target=$('kaliNativeTarget').value.trim(), timeout=Number($('kaliNativeTimeout').value)||120, out=$('kaliToolOutput');
+ if(!target){out.textContent='Target is required.';return;}
+ $('kaliTarget').value=target; out.textContent='Running '+kaliMeta[activeKaliTool].title+'…';
+ try{const r=await fetch(RUNNER_URL+'/kali-tools/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tool:activeKaliTool,target,timeout})});const d=await r.json();out.textContent=(d.stdout||'')+(d.stderr?'\n'+d.stderr:'')||JSON.stringify(d,null,2);}
+ catch(e){out.textContent='Runner error: '+e.message;}
+}
+async function kaliStatusNative(){
+ const out=$('kaliToolOutput'); out.textContent='Checking '+kaliMeta[activeKaliTool].title+'…';
+ try{const r=await fetch(RUNNER_URL+'/kali-tools/status',{cache:'no-store'}),d=await r.json();out.textContent=JSON.stringify(d.tools?.[activeKaliTool]||d,null,2);}
+ catch(e){out.textContent='Runner error: '+e.message;}
+}
 document.querySelectorAll('.kali-menu-item').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.kali-menu-item').forEach(x=>x.classList.remove('active'));b.classList.add('active');activeKaliTool=b.dataset.tool;kaliPanel();}));
-$('kaliStatusBtn')?.addEventListener('click',async()=>{const out=$('kaliToolOutput');out.textContent='جارٍ فحص توفر '+kaliMeta[activeKaliTool].title+'…';try{const r=await fetch(RUNNER_URL+'/kali-tools/status',{cache:'no-store'});const d=await r.json();const x=d.tools?.find?.(v=>v.key===activeKaliTool)||d.tools?.[activeKaliTool];out.textContent=JSON.stringify(x||d,null,2);}catch(e){out.textContent='تعذر الاتصال بـ Runner: '+e.message;}});
-$('kaliRunBtn')?.addEventListener('click',async()=>{const out=$('kaliToolOutput'),target=$('kaliTarget').value.trim();if(!target){out.textContent='أدخل الهدف أولاً.';return;}out.textContent='تشغيل '+kaliMeta[activeKaliTool].title+'…';try{const r=await fetch(RUNNER_URL+'/kali-tools/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tool:activeKaliTool,target,timeout:90})});const d=await r.json();out.textContent=(d.stdout||'')+(d.stderr?'\\n'+d.stderr:'')||JSON.stringify(d,null,2);}catch(e){out.textContent='تعذر التشغيل: '+e.message;}});
-$('kaliOpenBtn')?.addEventListener('click',()=>{$('kaliToolOutput').textContent='فتح '+kaliMeta[activeKaliTool].title+' داخل مساحة NOB…';kaliPanel();});
+$('kaliRunBtn')?.addEventListener('click',kaliRunNative);
+$('kaliStatusBtn')?.addEventListener('click',kaliStatusNative);
+$('kaliOpenBtn')?.addEventListener('click',()=>{kaliPanel();$('kaliToolState').textContent='OPEN';});
 kaliPanel();
 
 document.querySelectorAll('.kali-status-btn').forEach(btn=>btn.addEventListener('click',async()=>{
