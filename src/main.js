@@ -412,6 +412,18 @@ $('dbQueryBtn').addEventListener('click',async()=>{
 
 $('kaliToolsBtn').addEventListener('click',async()=>{ $('kaliToolsPage').classList.remove('hidden'); $('scanPanel').classList.add('hidden'); $('results').classList.add('hidden'); window.scrollTo({top:0,behavior:'smooth'}); });
 $('kaliBackBtn').addEventListener('click',()=>{ $('kaliToolsPage').classList.add('hidden'); window.scrollTo({top:0,behavior:'smooth'}); });
+document.querySelectorAll('.kali-run-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+  const key=btn.dataset.tool,out=document.querySelector('[data-output="'+key+'"]'),target=$('target').value.trim();
+  if(!target){out.textContent='أدخل الهدف في خانة الفحص الرئيسية أولاً.';return;}
+  btn.disabled=true;btn.textContent='جاري التشغيل…';out.textContent='';
+  try{
+    const r=await fetch(RUNNER_URL+'/kali-tools/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tool:key,target,timeout:90}),cache:'no-store'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail||d.error||'تعذر تشغيل الأداة');
+    out.textContent=(d.stdout||'')+(d.stderr?'\\n'+d.stderr:'')||'انتهى التشغيل بدون مخرجات.';
+  }catch(e){out.textContent='تعذر التشغيل: '+(e.message||'خطأ غير معروف');}
+  finally{btn.disabled=false;btn.textContent='تشغيل الفحص';}
+}));
 document.querySelectorAll('.kali-status-btn').forEach(btn=>btn.addEventListener('click',async()=>{
   const key=btn.dataset.tool, status=document.querySelector('[data-status="'+key+'"]');
   btn.disabled=true; btn.textContent='جاري التحقق…';
