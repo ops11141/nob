@@ -6,12 +6,12 @@
 <meta name="theme-color" content="#07131f">
 <meta name="description" content="NOB — منصة دفاعية لتقييم أمن المواقع من الخارج">
 <title>NOB | Cyber Defense Platform</title>
-<link rel="stylesheet" href="./src/styles.css?v=20261008-kali1">
+<link rel="stylesheet" href="./src/styles.css?v=20261008-kali2">
 </head>
 <body>
 <div id="app"><div style="min-height:100vh;display:grid;place-items:center;background:#06111c;color:#eef7ff;font-family:system-ui,Arial;padding:24px;text-align:center"><div><div style="font-size:32px;font-weight:800">NOB</div><div style="margin-top:10px;opacity:.7">جاري تحميل منصة الأمن السيبراني...</div></div></div></div>
 <script type="module">
-  import('./src/main.js?v=20261008-kali1').catch((error) => {
+  import('./src/main.js?v=20261008-kali2').catch((error) => {
     console.error('NOB boot error:', error);
     const app = document.querySelector('#app');
     app.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;background:#06111c;color:#eef7ff;font-family:system-ui,Arial;padding:24px;text-align:center;direction:rtl"><div style="max-width:760px"><div style="font-size:34px;font-weight:900">تعذر تشغيل NOB</div><p style="opacity:.75">حدث خطأ أثناء تحميل واجهة المنصة. أعد تحميل الصفحة بعد اكتمال النشر.</p><details style="text-align:left;direction:ltr;margin-top:20px"><summary>تفاصيل الخطأ</summary><pre style="white-space:pre-wrap;color:#ef6670">'+String(error?.stack || error?.message || error)+'</pre></details></div></div>';
