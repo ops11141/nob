@@ -29,12 +29,29 @@ app.innerHTML = `
 
     <section id="kaliToolsPage" class="kali-page hidden">
       <div class="result-head">
-        <div><span>KALI TOOLKIT</span><h2>أدوات كالي</h2></div>
+        <div><span>KALI TOOLKIT / LOCAL ENGINES</span><h2>أدوات كالي</h2></div>
         <button id="kaliBackBtn" type="button">العودة</button>
       </div>
-      <p class="intel-note">واجهة موحدة لأدوات التقييم الأمني. التشغيل الآلي هنا مخصص للفحص المصرح به والاستطلاع الآمن؛ لا توجد وظائف لتخمين كلمات المرور أو تجاوز المصادقة أو تنفيذ استغلال تلقائي.</p>
-      <div id="kaliToolsGrid" class="kali-tools-grid">
-        <article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>Burp Suite</h3><p>تحليل واعتراض حركة HTTP/HTTPS</p></div><button type="button" class="kali-status-btn" data-tool="proxy">فحص التوفر</button><small class="kali-status" data-status="proxy">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>SQLmap</h3><p>اختبار مؤشرات SQL Injection في نطاق مصرح</p></div><button type="button" class="kali-status-btn" data-tool="sql">فحص التوفر</button><small class="kali-status" data-status="sql">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>WPScan</h3><p>استطلاع وفحص أمان WordPress</p></div><button type="button" class="kali-status-btn" data-tool="wp">فحص التوفر</button><small class="kali-status" data-status="wp">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>OWASP ZAP</h3><p>فحص تطبيقات الويب وتحليلها</p></div><button type="button" class="kali-status-btn" data-tool="zap">فحص التوفر</button><small class="kali-status" data-status="zap">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>Metasploit</h3><p>إطار تقييم أمني مصرح؛ التشغيل التلقائي للاستغلال غير مفعل</p></div><button type="button" class="kali-status-btn" data-tool="meta">فحص التوفر</button><small class="kali-status" data-status="meta">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>Hydra</h3><p>اختبار مصادقة مصرح؛ التخمين الآلي غير مفعل</p></div><button type="button" class="kali-status-btn" data-tool="hydra">فحص التوفر</button><small class="kali-status" data-status="hydra">لم يتم التحقق</small></article>
+      <div class="kali-workspace">
+        <aside class="kali-sidebar">
+          <div class="kali-brand">KALI <small>TOOLKIT</small></div>
+          <div class="kali-menu">
+            <button class="kali-menu-item active" data-tool="proxy">Burp Suite</button>
+            <button class="kali-menu-item" data-tool="sql">SQLmap</button>
+            <button class="kali-menu-item" data-tool="wp">WPScan</button>
+            <button class="kali-menu-item" data-tool="zap">OWASP ZAP</button>
+            <button class="kali-menu-item" data-tool="meta">Metasploit</button>
+            <button class="kali-menu-item" data-tool="hydra">Hydra</button>
+          </div>
+        </aside>
+        <div class="kali-console">
+          <div class="kali-toolbar"><div><b id="kaliToolTitle">Burp Suite</b><span id="kaliToolState">جاهز</span></div><button id="kaliOpenBtn" type="button">فتح الأداة</button></div>
+          <div class="kali-targetbar"><label>Target</label><input id="kaliTarget" type="text" placeholder="example.com" autocomplete="off"><button id="kaliRunBtn" type="button">تشغيل</button><button id="kaliStatusBtn" type="button">فحص التوفر</button></div>
+          <div class="kali-tabs"><button class="active">Dashboard</button><button>Request</button><button>Response</button><button>Console</button><button>Results</button></div>
+          <div id="kaliToolPanel" class="kali-tool-panel"></div>
+          <pre id="kaliToolOutput" class="kali-terminal">NOB KALI CONSOLE
+جاهز لتشغيل الأداة من خلال Runner.</pre>
+        </div>
       </div>
     </section>
 
@@ -412,18 +429,23 @@ $('dbQueryBtn').addEventListener('click',async()=>{
 
 $('kaliToolsBtn').addEventListener('click',async()=>{ $('kaliToolsPage').classList.remove('hidden'); $('scanPanel').classList.add('hidden'); $('results').classList.add('hidden'); window.scrollTo({top:0,behavior:'smooth'}); });
 $('kaliBackBtn').addEventListener('click',()=>{ $('kaliToolsPage').classList.add('hidden'); window.scrollTo({top:0,behavior:'smooth'}); });
-document.querySelectorAll('.kali-run-btn').forEach(btn=>btn.addEventListener('click',async()=>{
-  const key=btn.dataset.tool,out=document.querySelector('[data-output="'+key+'"]'),target=$('target').value.trim();
-  if(!target){out.textContent='أدخل الهدف في خانة الفحص الرئيسية أولاً.';return;}
-  btn.disabled=true;btn.textContent='جاري التشغيل…';out.textContent='';
-  try{
-    const r=await fetch(RUNNER_URL+'/kali-tools/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tool:key,target,timeout:90}),cache:'no-store'});
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(d.detail||d.error||'تعذر تشغيل الأداة');
-    out.textContent=(d.stdout||'')+(d.stderr?'\\n'+d.stderr:'')||'انتهى التشغيل بدون مخرجات.';
-  }catch(e){out.textContent='تعذر التشغيل: '+(e.message||'خطأ غير معروف');}
-  finally{btn.disabled=false;btn.textContent='تشغيل الفحص';}
-}));
+const kaliMeta={
+ proxy:{title:'Burp Suite',desc:'واجهة Proxy وتحليل طلبات HTTP/HTTPS',kind:'info'},
+ sql:{title:'SQLmap',desc:'اختبار مؤشرات SQL Injection على هدف مصرح',kind:'scan'},
+ wp:{title:'WPScan',desc:'استطلاع مكونات WordPress العامة',kind:'scan'},
+ zap:{title:'OWASP ZAP',desc:'واجهة فحص تطبيقات الويب وتحليل النتائج',kind:'scan'},
+ meta:{title:'Metasploit',desc:'واجهة معلومات الإطار والوحدات دون تشغيل استغلال تلقائي',kind:'info'},
+ hydra:{title:'Hydra',desc:'واجهة حالة الأداة؛ لا يتم تشغيل تخمين كلمات المرور',kind:'info'}
+};
+let activeKaliTool='proxy';
+const kaliPanel=()=>{const m=kaliMeta[activeKaliTool];$('kaliToolTitle').textContent=m.title;$('kaliToolState').textContent='جاهز';
+$('kaliToolPanel').innerHTML='<h3>'+m.title+'</h3><p>'+m.desc+'</p><div class="kali-feature-grid"><span>Engine <b>Runner</b></span><span>Mode <b>Authorized</b></span><span>Status <b data-status-live>Ready</b></span></div>';};
+document.querySelectorAll('.kali-menu-item').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.kali-menu-item').forEach(x=>x.classList.remove('active'));b.classList.add('active');activeKaliTool=b.dataset.tool;kaliPanel();}));
+$('kaliStatusBtn')?.addEventListener('click',async()=>{const out=$('kaliToolOutput');out.textContent='جارٍ فحص توفر '+kaliMeta[activeKaliTool].title+'…';try{const r=await fetch(RUNNER_URL+'/kali-tools/status',{cache:'no-store'});const d=await r.json();const x=d.tools?.find?.(v=>v.key===activeKaliTool)||d.tools?.[activeKaliTool];out.textContent=JSON.stringify(x||d,null,2);}catch(e){out.textContent='تعذر الاتصال بـ Runner: '+e.message;}});
+$('kaliRunBtn')?.addEventListener('click',async()=>{const out=$('kaliToolOutput'),target=$('kaliTarget').value.trim();if(!target){out.textContent='أدخل الهدف أولاً.';return;}out.textContent='تشغيل '+kaliMeta[activeKaliTool].title+'…';try{const r=await fetch(RUNNER_URL+'/kali-tools/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tool:activeKaliTool,target,timeout:90})});const d=await r.json();out.textContent=(d.stdout||'')+(d.stderr?'\\n'+d.stderr:'')||JSON.stringify(d,null,2);}catch(e){out.textContent='تعذر التشغيل: '+e.message;}});
+$('kaliOpenBtn')?.addEventListener('click',()=>{$('kaliToolOutput').textContent='فتح '+kaliMeta[activeKaliTool].title+' داخل مساحة NOB…';kaliPanel();});
+kaliPanel();
+
 document.querySelectorAll('.kali-status-btn').forEach(btn=>btn.addEventListener('click',async()=>{
   const key=btn.dataset.tool, status=document.querySelector('[data-status="'+key+'"]');
   btn.disabled=true; btn.textContent='جاري التحقق…';
