@@ -87,7 +87,7 @@ app.innerHTML = `
       <section id="dbBrowser" class="public-intel">
         <div class="result-head">
           <div><span>AUTHORIZED DATABASE ACCESS</span><h2>استعراض قاعدة البيانات</h2></div>
-          <button id="dbQueryBtn" type="button">تنفيذ قراءة</button>
+          <div class="db-actions"><button id="dbSchemaBtn" type="button">اكتشاف الجداول</button><button id="dbQueryBtn" type="button">تنفيذ قراءة</button></div>
         </div>
         <p class="intel-note">للوصول المصرح به فقط. الاتصال يتطلب حسابًا تملكه. يسمح NOB بعمليات القراءة فقط: SELECT / SHOW / DESCRIBE / EXPLAIN، ولا يدعم تجاوز الدخول أو تعديل البيانات.</p>
         <div class="ftp-form">
@@ -340,6 +340,28 @@ $('ftpListBtn').addEventListener('click',async()=>{
   }
 });
 
+
+$('dbSchemaBtn').addEventListener('click',async()=>{
+  const btn=$('dbSchemaBtn'),status=$('dbStatus'),out=$('dbData');
+  btn.disabled=true;btn.textContent='جاري الاكتشاف…';out.innerHTML='';
+  try{
+    const engine=$('dbEngine').value,host=$('dbHost').value.trim(),database=$('dbName').value.trim();
+    if(!host||!$('dbUser').value) throw new Error('أدخل الخادم واسم المستخدم.');
+    const qdb=database.replace(/'/g,"''");
+    const query=engine==='postgresql'
+      ? (database?"SELECT table_schema, table_name, column_name, data_type FROM information_schema.columns WHERE table_schema NOT IN ('pg_catalog','information_schema') AND table_catalog='"+qdb+"' ORDER BY table_schema, table_name, ordinal_position LIMIT 1000":"SELECT table_schema, table_name, column_name, data_type FROM information_schema.columns WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY table_schema, table_name, ordinal_position LIMIT 1000")
+      : (database?"SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM information_schema.columns WHERE TABLE_SCHEMA='"+qdb+"' ORDER BY TABLE_NAME, ORDINAL_POSITION LIMIT 1000":"SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM information_schema.columns ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION LIMIT 1000");
+    const body={engine,host,port:Number($('dbPort').value||(engine==='postgresql'?5432:3306)),database,username:$('dbUser').value,password:$('dbPass').value,query,timeout:30,max_rows:1000};
+    status.textContent='جاري اكتشاف الجداول والأعمدة…';
+    const r=await fetch(RUNNER_URL+'/db/query',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok) throw new Error(data.detail||data.error||'تعذر اكتشاف المخطط');
+    status.textContent='تم اكتشاف '+(data.rowCount||0)+' سجل من مخطط قاعدة البيانات.';
+    out.innerHTML=`<article class="intel-card wide"><div class="card-title"><b>مخطط قاعدة البيانات</b><span>${esc(data.engine)}</span></div><pre class="ftp-preview">${esc((data.rows||[]).join('\\n'))}</pre></article>`;
+    $('dbQuery').value=query;
+  }catch(e){status.textContent='تعذر الاكتشاف: '+(e.message||'خطأ غير معروف');}
+  finally{btn.disabled=false;btn.textContent='اكتشاف الجداول';}
+});
 
 $('dbQueryBtn').addEventListener('click',async()=>{
   const btn=$('dbQueryBtn'), status=$('dbStatus'), out=$('dbData');
