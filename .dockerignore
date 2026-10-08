@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+dist
+source
+data
+docs
+scripts
+*.dwg
+*.dwg.gz
+README.md
+CYBER-DEFENSE.md
+backend
