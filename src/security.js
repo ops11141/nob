@@ -178,10 +178,18 @@ export async function discoverPublicDataSurface(target,onProgress=()=>{}){
     onProgress({label:'تحليل الصفحة والروابط',percent:30});
     const inline=[...doc.querySelectorAll('script:not([src])')].map(x=>x.textContent||'');
     const scripts=[...new Set(resources.filter(x=>x.kind==='script').map(x=>x.url))].slice(0,40);
-    const codeSources=inline.map((text,i)=>({url:first.url+'#inline-script-'+(i+1),text}));
+    const codeSources=[
+      {url:first.url,kind:'html',text:first.text},
+      ...inline.map((text,i)=>({url:first.url+'#inline-script-'+(i+1),kind:'javascript',text}))
+    ];
     for(const url of scripts){
       const sr=await publicGet(url,7000);
-      if(sr.ok)codeSources.push({url,text:sr.text});
+      if(sr.ok)codeSources.push({url,kind:'javascript',text:sr.text});
+    }
+    const stylesheets=[...new Set(resources.filter(x=>x.kind==='link'&&/\.css(?:\?|$)/i.test(x.url)).map(x=>x.url))].slice(0,20);
+    for(const url of stylesheets){
+      const sr=await publicGet(url,6000);
+      if(sr.ok)codeSources.push({url,kind:'css',text:sr.text});
     }
     const methodRegex=/\b(fetch|axios|XMLHttpRequest|\$\.ajax|\$\.get|\$\.post)\s*\(/gi;
     const stringRegex=/['"`]((?:https?:\/\/|\/)[^'"`\s<>]{1,500})['"`]/g;
@@ -208,9 +216,14 @@ export async function discoverPublicDataSurface(target,onProgress=()=>{}){
       const pr=await publicGet(url,6000);
       if(!pr.ok)continue;
       const pd=new DOMParser().parseFromString(pr.text,'text/html');
+      codeSources.push({url:pr.url,kind:'html',text:pr.text});
       scanDocument(pd,pr.url);
+      [...pd.querySelectorAll('script:not([src])')].slice(0,10).forEach((x,i)=>codeSources.push({url:pr.url+'#inline-script-'+(i+1),kind:'javascript',text:x.textContent||''}));
       for(const s of [...pd.querySelectorAll('script[src]')].map(x=>resolve(x.getAttribute('src'),new URL(pr.url))).filter(Boolean).slice(0,8)){
-        const sr=await publicGet(s,5000); if(sr.ok) codeSources.push({url:s,text:sr.text});
+        const sr=await publicGet(s,5000); if(sr.ok) codeSources.push({url:s,kind:'javascript',text:sr.text});
+      }
+      for(const s of [...pd.querySelectorAll('link[href]')].map(x=>resolve(x.getAttribute('href'),new URL(pr.url))).filter(u=>u&&/\.css(?:\?|$)/i.test(u)).slice(0,6)){
+        const sr=await publicGet(s,5000); if(sr.ok) codeSources.push({url:s,kind:'css',text:sr.text});
       }
       if(seenPages.size>=20)break;
     }
@@ -224,7 +237,7 @@ export async function discoverPublicDataSurface(target,onProgress=()=>{}){
     return {
       ok:true,target:target.display,finalUrl:first.url,status:first.status,title:doc.title||'',
       resources:uniqueResources,endpoints:uniqueEndpoints,forms:uniqueForms,
-      files:codeSources.map(x=>({url:x.url,kind:'javascript',type:'public-file-content',content:(x.text||'').slice(0,120000)})),
+      files:codeSources.map(x=>({url:x.url,kind:x.kind||'text',type:'public-file-content',content:(x.text||'').slice(0,120000)})),
       pages:[...seenPages],
       robots:{available:robots.ok,status:robots.status||null},
       sitemap:{available:sitemap.ok,status:sitemap.status||null},
