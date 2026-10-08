@@ -1,4 +1,4 @@
-import asyncio, ipaddress, socket
+import asyncio, ipaddress, socket, io, ssl, ftplib
 from urllib.parse import urlparse
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +26,81 @@ class Job(BaseModel):
 class DeepJob(BaseModel):
     target:str
     timeout:int=Field(default=90,ge=10,le=180)
+
+class FTPJob(BaseModel):
+    host:str
+    port:int=Field(default=21,ge=1,le=65535)
+    username:str=Field(default="anonymous",max_length=160)
+    password:str=Field(default="",max_length=512)
+    path:str=Field(default="/",max_length=2048)
+    tls:bool=False
+    timeout:int=Field(default=15,ge=5,le=60)
+
+def validate_public_host(raw):
+    host=(raw or "").strip().lower()
+    if not host: raise ValueError("FTP host is required")
+    if "://" in host: host=urlparse(host).hostname or ""
+    if host in {"localhost","localhost.localdomain"} or host.endswith((".local",".internal",".localhost")):
+        raise ValueError("Private/local FTP targets are blocked")
+    try:
+        infos=socket.getaddrinfo(host,None)
+        if not infos: raise ValueError("FTP host DNS could not be resolved")
+        for i in infos:
+            ip=ipaddress.ip_address(i[4][0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified:
+                raise ValueError("Private/local FTP target is blocked")
+    except socket.gaierror as e:
+        raise ValueError("FTP host DNS could not be resolved") from e
+    return host
+
+def ftp_connect(job):
+    host=validate_public_host(job.host)
+    cls=ftplib.FTP_TLS if job.tls else ftplib.FTP
+    ftp=cls()
+    ftp.connect(host,job.port,timeout=job.timeout)
+    ftp.encoding="utf-8"
+    ftp.login(job.username,job.password)
+    if job.tls and isinstance(ftp,ftplib.FTP_TLS):
+        ftp.prot_p()
+    ftp.set_pasv(True)
+    return ftp,host
+
+def ftp_list(job):
+    ftp,host=ftp_connect(job)
+    try:
+        path=job.path or "/"
+        ftp.cwd(path)
+        current=ftp.pwd()
+        items=[]
+        try:
+            for name, facts in ftp.mlsd():
+                kind=facts.get("type","unknown")
+                size=facts.get("size")
+                items.append({"name":name,"type":kind,"size":int(size) if str(size).isdigit() else None,"modified":facts.get("modify")})
+        except Exception:
+            names=ftp.nlst()
+            for name in names:
+                items.append({"name":name.rsplit("/",1)[-1],"type":"unknown","size":None,"modified":None})
+        return {"ok":True,"host":host,"path":current,"items":items[:500],"tls":job.tls,"scope":"authorized-ftp-access"}
+    finally:
+        try: ftp.quit()
+        except Exception: pass
+
+def ftp_preview(job):
+    ftp,host=ftp_connect(job)
+    try:
+        path=job.path or "/"
+        buf=io.BytesIO()
+        ftp.retrbinary("RETR "+path,buf.write,blocksize=65536)
+        raw=buf.getvalue()
+        if len(raw)>250000: raise ValueError("File preview is limited to 250 KB")
+        text_value=raw.decode("utf-8")
+        return {"ok":True,"host":host,"path":path,"content":text_value,"bytes":len(raw),"scope":"authorized-ftp-access"}
+    except UnicodeDecodeError:
+        return {"ok":False,"error":"Binary/non-text file; preview is disabled","scope":"authorized-ftp-access"}
+    finally:
+        try: ftp.quit()
+        except Exception: pass
 
 def normalize_target(raw):
     value=raw.strip()
@@ -138,8 +213,22 @@ async def public_surface(job:DeepJob):
     try: return extract_public_surface(target)
     except Exception as e: return {'ok':False,'error':str(e)[:300],'scope':'public-surface-discovery'}
 
+@app.post("/ftp/list")
+async def ftp_list_route(job:FTPJob):
+    try:
+        return await asyncio.to_thread(ftp_list,job)
+    except (ValueError,ftplib.all_errors) as e:
+        raise HTTPException(400,str(e)[:400])
+
+@app.post("/ftp/preview")
+async def ftp_preview_route(job:FTPJob):
+    try:
+        return await asyncio.to_thread(ftp_preview,job)
+    except (ValueError,ftplib.all_errors) as e:
+        raise HTTPException(400,str(e)[:400])
+
 @app.get("/health")
-async def health(): return {"ok":True,"service":"NOB Runner","version":"2.0","tools":sorted(TOOLS)}
+async def health(): return {"ok":True,"service":"NOB Runner","version":"2.1","tools":sorted(TOOLS),"modules":["public-surface","authorized-ftp-browser"]}
 
 @app.post("/run")
 async def run(job:Job):
