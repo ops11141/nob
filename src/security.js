@@ -248,3 +248,28 @@ export async function discoverPublicDataSurface(target,onProgress=()=>{}){
     return {ok:false,error:e.name==='AbortError'?'timeout':(e.message||'blocked'),scope:'public-surface-discovery'};
   }finally{clearTimeout(timer);}
 }
+
+
+export async function runBackendActiveAssessment(target,backendUrl,onProgress=()=>{}){
+  const base=String(backendUrl||'').trim().replace(/\/$/,'');
+  if(!base) throw new Error('أدخل رابط NOB Backend أولاً.');
+  onProgress({label:'الاتصال بخادم NOB',percent:20});
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),15000);
+  try{
+    const r=await fetch(base+'/scan',{
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({target:target.url.toString(),methods:['HEAD','OPTIONS','GET']}),
+      signal:controller.signal,
+      cache:'no-store'
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok) throw new Error(data.error||'تعذر الاتصال بخادم NOB');
+    onProgress({label:'اكتملت قراءة HTTP من الخادم',percent:100});
+    return data;
+  }catch(e){
+    if(e.name==='AbortError') throw new Error('انتهت مهلة الاتصال بخادم NOB.');
+    throw e;
+  }finally{clearTimeout(timer);}
+}
