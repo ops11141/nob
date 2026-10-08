@@ -24,8 +24,10 @@ function headerChecks(headers){
 }
 
 async function dnsLookup(host){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),5000);
   try{
-    const r=await fetch(DNS_ENDPOINT+'?name='+encodeURIComponent(host)+'&type=A',{headers:{accept:'application/dns-json'}});
+    const r=await fetch(DNS_ENDPOINT+'?name='+encodeURIComponent(host)+'&type=A',{headers:{accept:'application/dns-json'},signal:controller.signal,cache:'no-store'});
     if(!r.ok) throw new Error('DNS HTTP '+r.status);
     const j=await r.json();
     return (j.Answer||[]).filter(x=>x.type===1).map(x=>x.data);
@@ -93,13 +95,13 @@ export async function runAuthorizedActiveAssessment(target,onProgress=()=>{}){
 
 export async function runPassiveAssessment(target,onProgress=()=>{}){
   const findings=[];let checks=0;let http=null;let ips=[];
-  onProgress({label:'DNS العام',percent:18});ips=await dnsLookup(target.host);checks++;
+  onProgress({label:'DNS العام',percent:18,step:'dns'});ips=await dnsLookup(target.host);checks++;
   if(!ips.length) findings.push(makeFinding('LOW','DNS-01','تعذر تأكيد DNS العام','لم يمكن الحصول على سجل A عبر محلل DNS العام المستخدم.','تحقق من DNS يدويًا؛ قد يكون السبب حجب الشبكة أو عدم وجود A record وليس مشكلة أمنية.'));
-  onProgress({label:'HTTP Response',percent:38});http=await getHttp(target.url);checks++;
+  onProgress({label:'HTTP Response',percent:38,step:'http'});http=await getHttp(target.url);checks++;
   if(!http.ok){
     findings.push(makeFinding('LOW','HTTP-01','الاستجابة غير قابلة للقياس من المتصفح','قد يمنع CORS أو جدار حماية أو الشبكة قراءة الاستجابة. لا نعتبر ذلك ثغرة.','استخدم نسخة الخادم المصرح بها من NOB لاحقًا للحصول على قياس موثوق.'));
   }
-  onProgress({label:'Security Headers',percent:62});
+  onProgress({label:'Security Headers',percent:62,step:'headers'});
   const headerResult=analyzeHeaders(target,http);findings.push(...headerResult.findings);checks+=headerResult.checks.length;
   if(target.protocol!=='https') findings.push(makeFinding('HIGH','TLS-01','الموقع يستخدم HTTP','الاتصال الأولي غير مشفر بواسطة HTTPS.','فعّل HTTPS وأعد توجيه HTTP إلى HTTPS.'));
   else checks++;
@@ -108,7 +110,7 @@ export async function runPassiveAssessment(target,onProgress=()=>{}){
   if(http.ok && http.headers.get('server')) exposure.push({level:'LOW',name:'Server technology disclosure',description:'رأس Server ظاهر في الاستجابة العامة.'});
   if(http.ok && http.headers.get('x-powered-by')) exposure.push({level:'MEDIUM',name:'Runtime disclosure',description:'X-Powered-By يكشف تقنية تشغيلية للعامة.'});
   if(!http.ok) exposure.push({level:'INFO',name:'HTTP visibility limited',description:'لم تتم قراءة الاستجابة من المتصفح؛ لا يوجد استنتاج بوجود بيانات مكشوفة.'});
-  onProgress({label:'Risk Analysis',percent:88});
+  onProgress({label:'Risk Analysis',percent:88,step:'risk'});
   const weights={CRITICAL:30,HIGH:18,MEDIUM:9,LOW:3};
   const summary={critical:0,high:0,medium:0,low:0};
   findings.forEach(f=>summary[f.severity.toLowerCase()]++);
