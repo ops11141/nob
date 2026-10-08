@@ -27,6 +27,20 @@ class DeepJob(BaseModel):
     target:str
     timeout:int=Field(default=90,ge=10,le=180)
 
+class KaliJob(BaseModel):
+    tool:str
+    target:str
+    timeout:int=Field(default=90,ge=10,le=180)
+
+KALI_SAFE_PROFILES={
+ "sql":["sqlmap","--batch","--crawl=1","--level=1","--risk=1"],
+ "wp":["wpscan","--no-update","--enumerate","ap,at"],
+ "zap":["zap-baseline.py","-t"],
+ "proxy":["burpsuite","--version"],
+ "meta":["msfconsole","-q","-x","version; exit"],
+ "hydra":["hydra","-h"]
+}
+
 class FTPJob(BaseModel):
     host:str
     port:int=Field(default=21,ge=1,le=65535)
@@ -236,6 +250,28 @@ def kali_tools_status():
 @app.get("/kali-tools/status")
 async def kali_tools_status_route():
     return {"ok":True,"tools":kali_tools_status(),"scope":"authorized-security-assessment"}
+
+def kali_tool_command(job):
+    key=job.tool.lower()
+    if key not in KALI_SAFE_PROFILES: raise ValueError("Unsupported Kali tool")
+    target=normalize_target(job.target)
+    if key=="zap": cmd=KALI_SAFE_PROFILES[key]+[target["url"]]
+    elif key=="sql": cmd=KALI_SAFE_PROFILES[key]+[target["url"]]
+    elif key=="wp": cmd=KALI_SAFE_PROFILES[key]+["--url",target["url"]]
+    else: cmd=KALI_SAFE_PROFILES[key]
+    return cmd
+
+@app.post("/kali-tools/run")
+async def kali_tools_run(job:KaliJob):
+    cmd=kali_tool_command(job)
+    try:
+        p=await asyncio.create_subprocess_exec(*cmd,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+        out,err=await asyncio.wait_for(p.communicate(),timeout=job.timeout)
+        return {"ok":p.returncode==0,"tool":job.tool,"target":job.target,"exitCode":p.returncode,"stdout":out.decode("utf-8","replace")[-40000:],"stderr":err.decode("utf-8","replace")[-10000:],"scope":"authorized-security-assessment"}
+    except asyncio.TimeoutError:
+        try:p.kill()
+        except ProcessLookupError:pass
+        return {"ok":False,"tool":job.tool,"error":"Tool execution timed out","scope":"authorized-security-assessment"}
 
 @app.get("/health")
 async def health():
