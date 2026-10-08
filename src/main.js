@@ -3,6 +3,7 @@ styleLink.rel = 'stylesheet';
 styleLink.href = new URL('./styles.css', import.meta.url).href;
 document.head.appendChild(styleLink);
 import { normalizeTarget, runPassiveAssessment, runAuthorizedActiveAssessment, runBackendActiveAssessment, discoverPublicDataSurface } from './security.js';
+import { KALI_TOOL_GROUPS, KALI_TOOL_COUNT } from './kali-tools.js';
 
 const app = document.querySelector('#app');
 
@@ -15,6 +16,7 @@ app.innerHTML = `
       <button class="nav-item" data-section="scan">◉ فحص موقع</button>
       <button class="nav-item" data-section="active">⚡ تحقق نشط</button>
       <button class="nav-item" data-section="discovery">🔎 استكشاف البيانات</button>
+      <button class="nav-item" data-section="kali">☠ ترسانة Kali</button>
       <button class="nav-item" data-section="findings">⚠ النتائج والمخاطر</button>
       <button class="nav-item" data-section="exposure">◈ البيانات المكشوفة</button>
       <button class="nav-item" data-section="headers">▣ HTTP / Headers</button>
@@ -117,6 +119,20 @@ app.innerHTML = `
       <div id="discoveryTable" class="finding-list"></div>
     </section>
 
+    <section id="kali" class="section">
+      <div class="page-title"><span>KALI SECURITY ARSENAL</span><h2>ترسانة أدوات Kali Linux</h2><p>واجهة موحدة لفهرسة أدوات Kali وتصنيفها وربطها لاحقًا بمحرك تنفيذ آمن. الصفحة لا تثبّت Kali داخل المتصفح ولا تشغّل أوامر على جهازك.</p></div>
+      <div class="kali-toolbar scan-card">
+        <div class="target-input">
+          <label>بحث في أدوات Kali</label>
+          <input id="kaliSearch" type="search" placeholder="ابحث: nmap، Burp، Wi-Fi، OSINT..." autocomplete="off">
+          <button id="kaliClear" type="button">مسح</button>
+        </div>
+        <div class="kali-stats"><span><b id="kaliCount"></b> أداة مفهرسة</span><span><b id="kaliGroups"></b> أقسام</span><span><b>OFFICIAL</b> مرجع Kali</span></div>
+      </div>
+      <div class="scan-note kali-note"><b>مهم:</b> Kali يوفر مئات الأدوات عبر مجموعاته الرسمية، ومنها جمع المعلومات، الويب، الثغرات، كلمات المرور، اللاسلكي، الهندسة العكسية، الطب الشرعي وغيرها. سنفصل بين الأدوات الآمنة/الاستطلاعية والأدوات النشطة، ولن نجعل NOB منصة لاستغلال أهداف غير مصرح بها.</div>
+      <div id="kaliCatalog" class="kali-catalog"></div>
+    </section>
+
     <section id="findings" class="section">
       <div class="page-title"><span>RISK ENGINE</span><h2>النتائج والمخاطر</h2><p>كل ملاحظة لها مستوى خطورة وسبب وتوصية.</p></div>
       <div id="findingsList" class="finding-list"><div class="empty-state"><strong>لا توجد نتائج بعد</strong><span>شغّل فحصًا أولًا.</span></div></div>
@@ -192,6 +208,30 @@ function setProgress(p,msg){
   }
 }
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+
+function renderKaliCatalog(){
+  const q=($('kaliSearch').value||'').trim().toLowerCase();
+  const html=KALI_TOOL_GROUPS.map(group=>{
+    const tools=group.tools.filter(t=>!q||t.join(' ').toLowerCase().includes(q));
+    if(!tools.length)return '';
+    return '<section class="kali-group"><div class="kali-group-head"><div><span>'+esc(group.icon)+'</span><div><h3>'+esc(group.name)+'</h3><small>'+tools.length+' أداة مطابقة</small></div></div><b>'+esc(group.id.toUpperCase())+'</b></div><div class="kali-tools">'+tools.map(t=>{
+      const mode=t[3]==='safe'?'PUBLIC / SAFE':'ACTIVE / AUTHORIZED';
+      const cls=t[3]==='safe'?'safe':'active';
+      return '<article class="kali-tool"><div class="kali-tool-top"><span class="kali-tool-icon">›_</span><div><strong>'+esc(t[0])+'</strong><small>'+esc(t[2])+'</small></div><em class="'+cls+'">'+mode+'</em></div><p>'+esc(t[1])+'</p><div class="kali-tool-actions"><button type="button" class="kali-info" data-tool="'+esc(t[0])+'">معلومات</button><button type="button" class="kali-run" data-tool="'+esc(t[0])+'" data-mode="'+cls+'">فتح الأداة</button></div></article>';
+    }).join('')+'</div></section>';
+  }).join('');
+  $('kaliCatalog').innerHTML=html||'<div class="empty-state"><strong>لا توجد أداة مطابقة</strong><span>جرّب اسم أداة أو قسمًا آخر.</span></div>';
+  $('kaliCatalog').querySelectorAll('.kali-info').forEach(b=>b.addEventListener('click',()=>{
+    const name=b.dataset.tool;
+    window.open('https://www.kali.org/tools/?q='+encodeURIComponent(name),'_blank','noopener');
+  }));
+  $('kaliCatalog').querySelectorAll('.kali-run').forEach(b=>b.addEventListener('click',()=>{
+    const name=b.dataset.tool;
+    toast('تم اختيار '+name+' — محرك التنفيذ يحتاج NOB Runner على خادم Linux مصرح به.');
+  }));
+  $('kaliCount').textContent=KALI_TOOL_COUNT;
+  $('kaliGroups').textContent=KALI_TOOL_GROUPS.length;
+}
 
 function renderFindings(findings=[]){
   const box=$('findingsList');
@@ -315,3 +355,6 @@ $('reset').addEventListener('click',()=>location.reload());
 
 $('discoverySearch').addEventListener('input',renderDiscoverySearch);
 $('clearDiscoverySearch').addEventListener('click',()=>{$('discoverySearch').value='';renderDiscoverySearch();});
+$('kaliSearch').addEventListener('input',renderKaliCatalog);
+$('kaliClear').addEventListener('click',()=>{$('kaliSearch').value='';renderKaliCatalog();});
+renderKaliCatalog();
