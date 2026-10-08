@@ -36,3 +36,5 @@
 .kali-tool-actions button:hover{background:#17445b}
 @media(max-width:1100px){.kali-tools{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.kali-tools{grid-template-columns:1fr}.kali-group{padding:11px}.kali-tool-top{align-items:flex-start}.kali-tool em{font-size:6px}}
+
+.runner-connect{margin-bottom:16px}.runner-result{margin-bottom:14px}.runner-result pre{margin:0;padding:14px;background:#040b11;border:1px solid #173447;border-radius:10px;color:#9fc4d7;white-space:pre-wrap;word-break:break-word;direction:ltr;text-align:left;font:10px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:500px;overflow:auto}
