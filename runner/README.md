@@ -1,14 +1,18 @@
-# NOB Runner
+# NOB Runner — Unified Deep Scan
 
-NOB Runner is the execution layer for the NOB web interface. It is intended for a Linux/Kali host controlled by the project owner.
+NOB Runner is the local execution engine for the NOB web interface. It runs a fixed, defensive/public-assessment toolchain inside Kali Linux and returns one correlated result.
 
-## Current tools
-- nmap
-- whatweb
-- nikto
-- dnsrecon
+## Unified engines
+- **dnsrecon** — DNS records and public DNS enumeration.
+- **subfinder** — passive subdomain discovery.
+- **httpx-toolkit** — HTTP status, title, technologies, IP, ASN, CDN/WAF indicators and redirects.
+- **whatweb** — web technology fingerprinting.
+- **wafw00f** — WAF fingerprinting.
+- **nmap** — service/version discovery.
+- **sslscan** — TLS/cipher/certificate inspection.
+- **nikto** — web-server security/information checks.
 
-The first release uses fixed command templates, blocks local/private targets, does not accept arbitrary shell commands, and enforces execution timeouts. Only targets the operator is authorized to assess should be submitted.
+The UI presents these as one NOB Deep Scan instead of a tool list. Kali documents these packages as standard tools for information gathering, web assessment and TLS analysis. The runner uses fixed command templates, blocks private/local targets, has execution timeouts, and never accepts arbitrary shell commands.
 
 ## Run
 ```bash
@@ -18,14 +22,15 @@ docker run --rm -p 8787:8787 nob-runner
 
 Health:
 ```
-GET /health
+curl http://127.0.0.1:8787/health
 ```
 
-Run:
+Deep scan:
 ```
-POST /run
-{"tool":"nmap","target":"example.com"}
+curl -X POST http://127.0.0.1:8787/deep-scan \
+  -H "content-type: application/json" \
+  -d '{"target":"https://example.com","timeout":90}'
 ```
 
-## Production hardening
-Put the Runner behind authentication, HTTPS, an allowlist/authorization layer, resource limits, logging, and network egress controls before exposing it to the public internet.
+## Safety
+Use only on systems you own or are explicitly authorized to assess. Before exposing Runner beyond the local machine, add authentication, HTTPS, authorization/allowlisting, resource limits, logging and network egress controls.
