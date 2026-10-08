@@ -1,7 +1,7 @@
 FROM kalilinux/kali-rolling
 
 RUN rm -f /etc/apt/sources.list.d/kali.sources /etc/apt/sources.list.d/*.list \
- && printf '%s\n' 'deb http://http.kali.org/kali kali-rolling main contrib non-free non-free-firmware' > /etc/apt/sources.list \
+ && printf '%s\n' 'deb https://http.kali.org/kali kali-rolling main contrib non-free non-free-firmware' > /etc/apt/sources.list \
  && apt-get clean \
  && apt-get update -o Acquire::Retries=5 \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
