@@ -18,7 +18,7 @@ app.innerHTML = `
 
       <form id="scanForm" class="url-box">
         <span class="url-icon">⌁</span>
-        <input id="target" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com" aria-label="رابط الموقع">
+        <input id="target" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="example.com" aria-label="رابط الموقع">
         <button id="scanBtn" type="submit">ابدأ الفحص الشامل <span>←</span></button>
       </form>
       <div class="consent">للمواقع التي تملكها أو لديك تصريح صريح بفحصها فقط.</div>
@@ -55,6 +55,16 @@ app.innerHTML = `
       </div>
 
       <details class="raw"><summary>عرض مخرجات المحركات الخام</summary><div id="rawData"></div></details>
+
+      <section id="publicIntel" class="public-intel">
+        <div class="result-head">
+          <div><span>PUBLIC DATA SURFACE</span><h2>استخراج المعلومات العامة</h2></div>
+          <button id="extractPublicBtn" type="button">استخراج المعلومات</button>
+        </div>
+        <p class="intel-note">يستخرج فقط ما هو متاح للعامة من الموقع المصرح بفحصه: الصفحات والملفات العامة والواجهات والنماذج وrobots.txt وsitemap.xml. لا يتم الدخول إلى قواعد بيانات أو تجاوز صلاحيات الوصول.</p>
+        <div id="publicIntelStatus" class="scan-message">لم يبدأ الاستخراج بعد.</div>
+        <div id="publicIntelData" class="intel-grid"></div>
+      </section>
     </section>
 
     <section id="offline" class="offline hidden">
@@ -217,6 +227,40 @@ $('scanForm').addEventListener('submit',async e=>{
   if(!online){$('offline').classList.remove('hidden');$('scanBtn').disabled=false;$('scanBtn').innerHTML='ابدأ الفحص الشامل <span>←</span>';return;}
   await deepScan(target.url);
   $('scanBtn').disabled=false;$('scanBtn').innerHTML='ابدأ الفحص الشامل <span>←</span>';
+});
+$('extractPublicBtn').addEventListener('click',async()=>{
+  const btn=$('extractPublicBtn'), status=$('publicIntelStatus'), out=$('publicIntelData');
+  btn.disabled=true; btn.textContent='جاري الاستخراج…';
+  status.textContent='جاري تحليل الصفحات والملفات العامة والواجهات…'; out.innerHTML='';
+  try{
+    const target=normalizeTarget($('target').value.trim());
+    const data=await (await import('./security.js')).discoverPublicDataSurface(target,p=>{
+      status.textContent=(p.label||'جاري الاستخراج…')+' — '+(p.percent||0)+'%';
+    });
+    if(!data.ok) throw new Error(data.error||'تعذر استخراج المعلومات العامة');
+    const endpoints=(data.endpoints||[]).slice(0,120);
+    const forms=(data.forms||[]).slice(0,60);
+    const pages=(data.pages||[]).slice(0,60);
+    const files=(data.files||[]).slice(0,80);
+    out.innerHTML=[
+      `<article class="intel-card wide"><div class="card-title"><b>ملخص الاستخراج</b><span>PUBLIC SURFACE</span></div><div class="data-list">
+        <div><span>الصفحات</span><b>${pages.length}</b></div>
+        <div><span>الملفات العامة</span><b>${files.length}</b></div>
+        <div><span>الواجهات / المسارات</span><b>${endpoints.length}</b></div>
+        <div><span>النماذج</span><b>${forms.length}</b></div>
+        <div><span>robots.txt</span><b>${data.robots?.available?'متاح':'غير متاح'}</b></div>
+        <div><span>sitemap.xml</span><b>${data.sitemap?.available?'متاح':'غير متاح'}</b></div>
+      </div></article>`,
+      `<article class="intel-card wide"><div class="card-title"><b>الواجهات والمسارات العامة</b><span>ENDPOINTS</span></div><div class="data-list">${endpoints.length?endpoints.map(x=>`<div><span>${esc(x.method)}</span><b>${esc(x.url)}</b></div>`).join(''):'<em>لم يتم العثور على مسارات عامة.</em>'}</div></article>`,
+      `<article class="intel-card wide"><div class="card-title"><b>الملفات والمصادر العامة</b><span>FILES / CODE</span></div><div class="data-list">${files.length?files.map(x=>`<div><span>${esc(x.kind)}</span><b>${esc(x.url)}</b></div>`).join(''):'<em>لم يتم العثور على ملفات عامة.</em>'}</div></article>`,
+      `<article class="intel-card wide"><div class="card-title"><b>النماذج العامة</b><span>FORMS</span></div><div class="data-list">${forms.length?forms.map(x=>`<div><span>${esc(x.method)}</span><b>${esc(x.url)}</b><small>${esc((x.fields||[]).join(', '))}</small></div>`).join(''):'<em>لم يتم العثور على نماذج عامة.</em>'}</div></article>`
+    ].join('');
+    status.textContent='اكتمل استخراج المعلومات العامة.';
+  }catch(e){
+    status.textContent='تعذر الاستخراج: '+(e.message||'خطأ غير معروف');
+  }finally{
+    btn.disabled=false; btn.textContent='استخراج المعلومات';
+  }
 });
 $('newScan').addEventListener('click',()=>{$('target').focus();window.scrollTo({top:0,behavior:'smooth'});});
 $('retryEngine').addEventListener('click',checkEngine);
