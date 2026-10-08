@@ -11,6 +11,7 @@ app.innerHTML = `
   </header>
 
   <main>
+    <nav class="tool-nav"><button id="kaliToolsBtn" type="button">أدوات كالي</button></nav>
     <section class="hero">
       <div class="eyebrow">NOB / UNIFIED WEBSITE INTELLIGENCE</div>
       <h1>افحص موقعك بالكامل<br><em>من رابط واحد.</em></h1>
@@ -23,6 +24,18 @@ app.innerHTML = `
       </form>
       <div class="consent">للمواقع التي تملكها أو لديك تصريح صريح بفحصها فقط.</div>
       <div id="inputError" class="input-error"></div>
+    </section>
+
+
+    <section id="kaliToolsPage" class="kali-page hidden">
+      <div class="result-head">
+        <div><span>KALI TOOLKIT</span><h2>أدوات كالي</h2></div>
+        <button id="kaliBackBtn" type="button">العودة</button>
+      </div>
+      <p class="intel-note">واجهة موحدة لأدوات التقييم الأمني. التشغيل الآلي هنا مخصص للفحص المصرح به والاستطلاع الآمن؛ لا توجد وظائف لتخمين كلمات المرور أو تجاوز المصادقة أو تنفيذ استغلال تلقائي.</p>
+      <div id="kaliToolsGrid" class="kali-tools-grid">
+        <article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>Burp Suite</h3><p>تحليل واعتراض حركة HTTP/HTTPS</p></div><button type="button" class="kali-status-btn" data-tool="proxy">فحص التوفر</button><small class="kali-status" data-status="proxy">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>SQLmap</h3><p>اختبار مؤشرات SQL Injection في نطاق مصرح</p></div><button type="button" class="kali-status-btn" data-tool="sql">فحص التوفر</button><small class="kali-status" data-status="sql">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>WPScan</h3><p>استطلاع وفحص أمان WordPress</p></div><button type="button" class="kali-status-btn" data-tool="wp">فحص التوفر</button><small class="kali-status" data-status="wp">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>OWASP ZAP</h3><p>فحص تطبيقات الويب وتحليلها</p></div><button type="button" class="kali-status-btn" data-tool="zap">فحص التوفر</button><small class="kali-status" data-status="zap">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>Metasploit</h3><p>إطار تقييم أمني مصرح؛ التشغيل التلقائي للاستغلال غير مفعل</p></div><button type="button" class="kali-status-btn" data-tool="meta">فحص التوفر</button><small class="kali-status" data-status="meta">لم يتم التحقق</small></article><article class="kali-tool-card"><div class="kali-tool-icon">K</div><div><h3>Hydra</h3><p>اختبار مصادقة مصرح؛ التخمين الآلي غير مفعل</p></div><button type="button" class="kali-status-btn" data-tool="hydra">فحص التوفر</button><small class="kali-status" data-status="hydra">لم يتم التحقق</small></article>
+      </div>
     </section>
 
     <section id="scanPanel" class="scan-panel hidden">
@@ -395,6 +408,20 @@ $('dbQueryBtn').addEventListener('click',async()=>{
     btn.disabled=false; btn.textContent='تنفيذ قراءة';
   }
 });
+
+
+$('kaliToolsBtn').addEventListener('click',async()=>{ $('kaliToolsPage').classList.remove('hidden'); $('scanPanel').classList.add('hidden'); $('results').classList.add('hidden'); window.scrollTo({top:0,behavior:'smooth'}); });
+$('kaliBackBtn').addEventListener('click',()=>{ $('kaliToolsPage').classList.add('hidden'); window.scrollTo({top:0,behavior:'smooth'}); });
+document.querySelectorAll('.kali-status-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+  const key=btn.dataset.tool, status=document.querySelector('[data-status="'+key+'"]');
+  btn.disabled=true; btn.textContent='جاري التحقق…';
+  try{
+    const r=await fetch(RUNNER_URL+'/kali-tools/status',{cache:'no-store'}); const d=await r.json();
+    const item=d.tools&&d.tools[key]; status.textContent=item&&item.available?'متوفر في Runner':'غير مثبت في Runner';
+    status.classList.toggle('ok',!!(item&&item.available));
+  }catch(e){status.textContent='تعذر التحقق';}
+  finally{btn.disabled=false;btn.textContent='فحص التوفر';}
+}));
 
 $('newScan').addEventListener('click',()=>{$('target').focus();window.scrollTo({top:0,behavior:'smooth'});});
 $('retryEngine').addEventListener('click',checkEngine);
