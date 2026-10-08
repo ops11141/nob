@@ -6,6 +6,7 @@ on:
     paths:
       - 'source/GEO.dwg'
       - 'source/GEO.dwg.gz'
+      - 'scripts/extract-dwg.mjs'
 
 permissions:
   contents: write
