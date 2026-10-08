@@ -250,14 +250,20 @@ function renderDiscoverySearch(){
   const q=($('discoverySearch').value||'').trim().toLowerCase();
   if(!discoveryState){$('discoverySearchMeta').textContent='لم يتم استخراج بيانات بعد.';return;}
   const all=[
+    ...(discoveryState.files||[]).map(x=>({...x,kindLabel:'FILE CONTENT'})),
     ...(discoveryState.resources||[]).map(x=>({...x,kindLabel:'FILE'})),
     ...(discoveryState.endpoints||[]).map(x=>({...x,kindLabel:'ENDPOINT'})),
     ...(discoveryState.forms||[]).map(x=>({...x,kindLabel:'FORM'})),
     ...(discoveryState.pages||[]).map(url=>({url,method:'GET',kindLabel:'PAGE',source:'public page'}))
   ];
   const filtered=q?all.filter(x=>JSON.stringify(x).toLowerCase().includes(q)):all;
-  $('discoverySearchMeta').textContent='النتائج: '+filtered.length+' من '+all.length+(q?' — البحث عن: '+q:'');
-  $('discoveryTable').innerHTML=filtered.slice(0,300).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">'+esc(x.kindLabel)+'</span><span class="finding-code">'+esc(x.method||'GET')+'</span></div><h3>'+esc(x.url||'')+'</h3><p>'+esc(x.type||x.kind||'Public data')+'</p><div class="recommendation"><b>المصدر:</b> '+esc(x.source||'')+'</div></article>').join('') || '<div class="empty-state compact"><strong>لا توجد نتائج</strong><span>جرّب كلمة بحث أخرى.</span></div>';
+  $('discoverySearchMeta').textContent='النتائج: '+filtered.length+' من '+all.length+(q?' — البحث في الروابط والـ endpoints والنماذج ومحتوى الملفات العامة':' — جميع البيانات المستخرجة');
+  $('discoveryTable').innerHTML=filtered.slice(0,300).map(x=>{
+    const content=x.content||'';
+    const idx=q&&content.toLowerCase().indexOf(q);
+    const snippet=idx>=0?content.slice(Math.max(0,idx-120),idx+q.length+220):'';
+    return '<article class="finding severity-low"><div class="finding-top"><span class="severity">'+esc(x.kindLabel)+'</span><span class="finding-code">'+esc(x.method||'GET')+'</span></div><h3>'+esc(x.url||'')+'</h3><p>'+esc(x.type||x.kind||'Public data')+'</p>'+(snippet?'<div class="code-snippet">'+esc(snippet)+'</div>':'')+'<div class="recommendation"><b>المصدر:</b> '+esc(x.source||'')+'</div></article>';
+  }).join('') || '<div class="empty-state compact"><strong>لا توجد نتائج</strong><span>جرّب كلمة بحث أخرى.</span></div>';
 }
 
 $('discoveryBtn').addEventListener('click',async()=>{
@@ -269,9 +275,7 @@ $('discoveryBtn').addEventListener('click',async()=>{
     $('discoveryResult').innerHTML='<strong>اكتمل الاستكشاف العام</strong><span>'+esc('الملفات: '+r.counts.resources+' · مؤشرات endpoints: '+r.counts.endpoints+' · النماذج: '+r.counts.forms)+'</span>';
     discoveryState=r;
     renderDiscoverySearch();
-    $('discoveryTable').innerHTML='<article class="finding severity-low"><div class="finding-top"><span class="severity">PUBLIC</span><span class="finding-code">SUMMARY</span></div><h3>خريطة السطح العام</h3><p>تم تحليل الصفحات والملفات والنماذج ومؤشرات الطلبات الظاهرة.</p><div class="recommendation"><b>الصفحات:</b> '+esc(r.counts.pages)+' · <b>الملفات:</b> '+esc(r.counts.resources)+' · <b>Robots:</b> '+esc(r.robots.available?'متاح':'غير متاح')+' · <b>Sitemap:</b> '+esc(r.sitemap.available?'متاح':'غير متاح')+'</div></article>'+
-      (r.endpoints||[]).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">PUBLIC</span><span class="finding-code">'+esc(x.method)+'</span></div><h3>'+esc(x.url)+'</h3><p>'+esc(x.type==='form'?'نموذج HTML عام.':x.type==='javascript'?'مؤشر طلب داخل JavaScript عام.':'مسار API محتمل ظاهر في الكود.')+'</p><div class="recommendation"><b>المصدر:</b> '+esc(x.source)+'</div></article>').join('')+
-      (r.forms||[]).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">'+esc(x.method)+'</span><span class="finding-code">FORM</span></div><h3>'+esc(x.url)+'</h3><p>نموذج عام ظاهر في HTML.</p><div class="recommendation"><b>الحقول:</b> '+esc((x.fields||[]).join(', ')||'لا توجد حقول مسماة')+'</div></article>').join('');
+    renderDiscoverySearch();
     toast('اكتمل استكشاف البيانات العامة');
   }catch(e){toast(e.message||'تعذر الاستكشاف');}
   finally{b.disabled=false;b.textContent='ابدأ الاستكشاف';}
@@ -283,7 +287,7 @@ $('activeBtn').addEventListener('click',async()=>{
   try{
     const r=await runAuthorizedActiveAssessment(state.target);
     renderFindings([...(state.findings||[]),...(r.findings||[])]);
-    $('activeResult').innerHTML='<strong>اكتمل التحقق النشط</strong><span>'+esc(r.checks.map(x=>x.method+': '+(x.status??x.error)).join(' · '))+'</span>';
+    $('activeResult').innerHTML='<strong>اكتمل التحقق النشط</strong><span>النتائج التفصيلية لكل طلب:</span><div class="active-checks">'+r.checks.map(x=>'<div class="active-check"><b>'+esc(x.method)+'</b><span class="active-status '+(x.status?'ok':'blocked')+'">'+esc(x.status??'BLOCKED / '+(x.error||'غير متاح'))+'</span><small>'+esc(x.allow?'Allow: '+x.allow:'بدون Allow header')+'</small></div>').join('')+'</div>';
     toast('اكتمل التحقق النشط غير التخريبي');
   }catch(e){toast(e.message||'تعذر التحقق');}
   finally{b.disabled=false;b.textContent='ابدأ التحقق النشط';}
