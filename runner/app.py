@@ -59,7 +59,9 @@ async def execute_tool(name,target,timeout):
     spec=TOOLS[name]
     cmd=[spec["bin"],*spec["args"]]
     if name=="subfinder": cmd += ["-d",target["domain"]]
+    elif name=="dnsrecon": cmd += ["-d",target["domain"]]
     elif name=="httpx": cmd += ["-u",target["url"]]
+    elif name=="nikto": cmd += ["-host",target["url"]]
     else: cmd += [tool_target(spec,target)]
     try:
         p=await asyncio.create_subprocess_exec(*cmd,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
