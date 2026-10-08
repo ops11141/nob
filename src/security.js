@@ -63,6 +63,34 @@ function analyzeTechnology(http){
   return out;
 }
 
+export async function runAuthorizedActiveAssessment(target,onProgress=()=>{}){
+  const checks=[];
+  const findings=[];
+  const request=async(method)=>{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),7000);
+    try{
+      const r=await fetch(target.url,{method,redirect:'manual',credentials:'omit',cache:'no-store',signal:controller.signal});
+      checks.push({method,status:r.status,allow:r.headers.get('allow')||''});
+      return r;
+    }catch(e){
+      checks.push({method,status:null,allow:'',error:e.name==='AbortError'?'timeout':'blocked'});
+      return null;
+    }finally{clearTimeout(timer);}
+  };
+  onProgress({label:'Active Validation',percent:20});
+  const response=await request('HEAD');
+  onProgress({label:'HTTP Methods',percent:55});
+  await request('OPTIONS');
+  onProgress({label:'Response Controls',percent:80});
+  if(response){
+    const server=response.headers.get('server');
+    if(server) findings.push(makeFinding('LOW','ACT-01','Server disclosure confirmed','تم تأكيد ظهور Server عبر طلب نشط غير تخريبي.','قلل تفاصيل إصدار الخادم الظاهرة للعامة.'));
+  }
+  onProgress({label:'Active Validation Complete',percent:100});
+  return {checks,findings,scope:'non-destructive-active-validation'};
+}
+
 export async function runPassiveAssessment(target,onProgress=()=>{}){
   const findings=[];let checks=0;let http=null;let ips=[];
   onProgress({label:'DNS العام',percent:18});ips=await dnsLookup(target.host);checks++;
