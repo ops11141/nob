@@ -224,10 +224,11 @@ export async function discoverPublicDataSurface(target,onProgress=()=>{}){
     return {
       ok:true,target:target.display,finalUrl:first.url,status:first.status,title:doc.title||'',
       resources:uniqueResources,endpoints:uniqueEndpoints,forms:uniqueForms,
+      files:codeSources.map(x=>({url:x.url,kind:'javascript',type:'public-file-content',content:(x.text||'').slice(0,120000)})),
       pages:[...seenPages],
       robots:{available:robots.ok,status:robots.status||null},
       sitemap:{available:sitemap.ok,status:sitemap.status||null},
-      counts:{resources:uniqueResources.length,endpoints:uniqueEndpoints.length,forms:uniqueForms.length,pages:seenPages.size},
+      counts:{resources:uniqueResources.length,endpoints:uniqueEndpoints.length,forms:uniqueForms.length,files:codeSources.length,pages:seenPages.size},
       scope:'public-surface-discovery'
     };
   }catch(e){
