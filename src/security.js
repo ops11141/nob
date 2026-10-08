@@ -126,3 +126,68 @@ export async function runPassiveAssessment(target,onProgress=()=>{}){
     generatedAt:new Date().toISOString()
   };
 }
+
+
+export async function discoverPublicDataSurface(target,onProgress=()=>{}){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),10000);
+  try{
+    onProgress({label:'تحميل الصفحة العامة',percent:15});
+    const response=await fetch(target.url,{method:'GET',redirect:'follow',credentials:'omit',cache:'no-store',signal:controller.signal});
+    const html=await response.text();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const base=new URL(response.url);
+    const resolve=(value)=>{try{return new URL(value,base).href}catch{return null}};
+    const resources=[];
+    const add=(kind,url,method='GET',extra={})=>{
+      const u=resolve(url); if(!u) return;
+      resources.push({kind,url:u,method,...extra});
+    };
+    doc.querySelectorAll('script[src]').forEach(x=>add('script',x.getAttribute('src')));
+    doc.querySelectorAll('link[href]').forEach(x=>add('link',x.getAttribute('href')));
+    doc.querySelectorAll('img[src],source[src]').forEach(x=>add('asset',x.getAttribute('src')));
+    doc.querySelectorAll('iframe[src]').forEach(x=>add('iframe',x.getAttribute('src')));
+    doc.querySelectorAll('form').forEach(x=>{
+      add('form',x.getAttribute('action')||base.href,(x.getAttribute('method')||'GET').toUpperCase(),{
+        fields:[...x.querySelectorAll('input[name],textarea[name],select[name]')].map(i=>i.getAttribute('name')).filter(Boolean)
+      });
+    });
+    const scripts=[...doc.querySelectorAll('script[src]')].map(x=>resolve(x.getAttribute('src'))).filter(Boolean);
+    const endpointHints=[];
+    onProgress({label:'تحليل الملفات والنماذج',percent:45});
+    for(const url of scripts.slice(0,30)){
+      try{
+        const sr=await fetch(url,{credentials:'omit',cache:'no-store'});
+        if(!sr.ok) continue;
+        const text=await sr.text();
+        const patterns=[
+          /(?:fetch|axios\.(?:get|post|put|delete)|url\s*:)\s*\(\s*['"`]([^'"`]+)['"`]/gi,
+          /['"`]((?:https?:\/\/|\/)[^'"`\s]{2,300})['"`]/g
+        ];
+        for(const re of patterns){
+          let m;
+          while((m=re.exec(text))!==null){
+            const raw=m[1];
+            if(/^(\/|https?:\/\/)/i.test(raw)){
+              const u=resolve(raw);
+              if(u && !endpointHints.some(x=>x.url===u)) endpointHints.push({url:u,source:url});
+            }
+          }
+        }
+      }catch{}
+    }
+    onProgress({label:'تصنيف الطلبات العامة',percent:80});
+    const unique=resources.filter((x,i,a)=>i===a.findIndex(y=>y.url===x.url&&y.method===x.method));
+    const endpoints=endpointHints.filter(x=>x.url.startsWith(base.origin));
+    onProgress({label:'اكتمل الاستكشاف',percent:100});
+    return {
+      ok:true,target:target.display,finalUrl:response.url,status:response.status,
+      title:doc.title||'',resources:unique,endpoints,
+      forms:unique.filter(x=>x.kind==='form'),
+      counts:{resources:unique.length,endpoints:endpoints.length,forms:unique.filter(x=>x.kind==='form').length},
+      scope:'public-surface-discovery'
+    };
+  }catch(e){
+    return {ok:false,error:e.name==='AbortError'?'timeout':(e.message||'blocked'),scope:'public-surface-discovery'};
+  }finally{clearTimeout(timer);}
+}
