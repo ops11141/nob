@@ -108,6 +108,10 @@ app.innerHTML = `
         <div class="active-mode"><div><strong>Public Surface Discovery</strong><span>HTML · JS · CSS · Forms · GET/POST/PUT/DELETE · API · صفحات عامة · Robots/Sitemap</span></div><button id="discoveryBtn">ابدأ الاستكشاف</button></div>
         <div id="discoveryResult" class="empty-state compact"><strong>لم يبدأ الاستكشاف</strong><span>نفّذ فحصًا أساسيًا أولًا ثم استكشف السطح العام لنفس الهدف.</span></div>
       </div>
+      <div class="scan-card" style="margin-top:16px">
+        <div class="target-input"><label>بحث داخل البيانات المستخرجة</label><input id="discoverySearch" type="search" placeholder="ابحث عن اسم ملف، endpoint، URL، كلمة، API..." autocomplete="off"><button id="clearDiscoverySearch" type="button">مسح</button></div>
+        <div id="discoverySearchMeta" class="scan-note">لم يتم استخراج بيانات بعد.</div>
+      </div>
       <div id="discoveryTable" class="finding-list"></div>
     </section>
 
@@ -239,13 +243,32 @@ async function runScan(){
 }
 
 $('scanBtn').addEventListener('click',runScan);
+
+
+let discoveryState=null;
+function renderDiscoverySearch(){
+  const q=($('discoverySearch').value||'').trim().toLowerCase();
+  if(!discoveryState){$('discoverySearchMeta').textContent='لم يتم استخراج بيانات بعد.';return;}
+  const all=[
+    ...(discoveryState.resources||[]).map(x=>({...x,kindLabel:'FILE'})),
+    ...(discoveryState.endpoints||[]).map(x=>({...x,kindLabel:'ENDPOINT'})),
+    ...(discoveryState.forms||[]).map(x=>({...x,kindLabel:'FORM'})),
+    ...(discoveryState.pages||[]).map(url=>({url,method:'GET',kindLabel:'PAGE',source:'public page'}))
+  ];
+  const filtered=q?all.filter(x=>JSON.stringify(x).toLowerCase().includes(q)):all;
+  $('discoverySearchMeta').textContent='النتائج: '+filtered.length+' من '+all.length+(q?' — البحث عن: '+q:'');
+  $('discoveryTable').innerHTML=filtered.slice(0,300).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">'+esc(x.kindLabel)+'</span><span class="finding-code">'+esc(x.method||'GET')+'</span></div><h3>'+esc(x.url||'')+'</h3><p>'+esc(x.type||x.kind||'Public data')+'</p><div class="recommendation"><b>المصدر:</b> '+esc(x.source||'')+'</div></article>').join('') || '<div class="empty-state compact"><strong>لا توجد نتائج</strong><span>جرّب كلمة بحث أخرى.</span></div>';
+}
+
 $('discoveryBtn').addEventListener('click',async()=>{
   if(!state?.target){toast('نفّذ فحصًا أساسيًا أولًا.');return;}
-  const b=$('discoveryBtn');b.disabled=true;b.textContent='جاري الاستكشاف...';showSection('discovery');
+  const b=$('discoveryBtn');b.disabled=true;b.textContent='جاري الاستكشاف...';showSection('discovery');$('discoverySearch').value='';
   try{
     const r=await discoverPublicDataSurface(state.target,p=>setProgress(p,p.label));
     if(!r.ok) throw new Error(r.error||'تعذر الاستكشاف');
     $('discoveryResult').innerHTML='<strong>اكتمل الاستكشاف العام</strong><span>'+esc('الملفات: '+r.counts.resources+' · مؤشرات endpoints: '+r.counts.endpoints+' · النماذج: '+r.counts.forms)+'</span>';
+    discoveryState=r;
+    renderDiscoverySearch();
     $('discoveryTable').innerHTML='<article class="finding severity-low"><div class="finding-top"><span class="severity">PUBLIC</span><span class="finding-code">SUMMARY</span></div><h3>خريطة السطح العام</h3><p>تم تحليل الصفحات والملفات والنماذج ومؤشرات الطلبات الظاهرة.</p><div class="recommendation"><b>الصفحات:</b> '+esc(r.counts.pages)+' · <b>الملفات:</b> '+esc(r.counts.resources)+' · <b>Robots:</b> '+esc(r.robots.available?'متاح':'غير متاح')+' · <b>Sitemap:</b> '+esc(r.sitemap.available?'متاح':'غير متاح')+'</div></article>'+
       (r.endpoints||[]).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">PUBLIC</span><span class="finding-code">'+esc(x.method)+'</span></div><h3>'+esc(x.url)+'</h3><p>'+esc(x.type==='form'?'نموذج HTML عام.':x.type==='javascript'?'مؤشر طلب داخل JavaScript عام.':'مسار API محتمل ظاهر في الكود.')+'</p><div class="recommendation"><b>المصدر:</b> '+esc(x.source)+'</div></article>').join('')+
       (r.forms||[]).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">'+esc(x.method)+'</span><span class="finding-code">FORM</span></div><h3>'+esc(x.url)+'</h3><p>نموذج عام ظاهر في HTML.</p><div class="recommendation"><b>الحقول:</b> '+esc((x.fields||[]).join(', ')||'لا توجد حقول مسماة')+'</div></article>').join('');
@@ -267,3 +290,6 @@ $('activeBtn').addEventListener('click',async()=>{
 });
 $('target').addEventListener('keydown',e=>{if(e.key==='Enter')runScan();});
 $('reset').addEventListener('click',()=>location.reload());
+
+$('discoverySearch').addEventListener('input',renderDiscoverySearch);
+$('clearDiscoverySearch').addEventListener('click',()=>{$('discoverySearch').value='';renderDiscoverySearch();});
