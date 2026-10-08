@@ -121,7 +121,7 @@ app.innerHTML = `
 
     <section id="kali" class="section">
       <div class="page-title"><span>KALI SECURITY ARSENAL</span><h2>ترسانة أدوات Kali Linux</h2><p>واجهة موحدة لفهرسة أدوات Kali وتصنيفها وربطها لاحقًا بمحرك تنفيذ آمن. الصفحة لا تثبّت Kali داخل المتصفح ولا تشغّل أوامر على جهازك.</p></div>
-      <div class="kali-toolbar scan-card">
+      <div class="scan-card runner-connect"><div class="target-input"><label>NOB Runner — محرك أدوات Kali</label><input id="runnerUrl" type="url" placeholder="https://runner.example.com" autocomplete="off"><button id="saveRunner" type="button">حفظ الربط</button></div><div id="runnerStatus" class="scan-note"><b>حالة Runner:</b> غير مربوط.</div></div>\n      <div class="kali-toolbar scan-card">
         <div class="target-input">
           <label>بحث في أدوات Kali</label>
           <input id="kaliSearch" type="search" placeholder="ابحث: nmap، Burp، Wi-Fi، OSINT..." autocomplete="off">
@@ -176,6 +176,7 @@ app.innerHTML = `
 
 const $ = id => document.getElementById(id);
 let backendUrl=localStorage.getItem('nobBackendUrl')||'';
+let runnerUrl=localStorage.getItem('nobRunnerUrl')||'';
 const sections = [...document.querySelectorAll('.section')];
 let state = null;
 
@@ -227,10 +228,33 @@ function renderKaliCatalog(){
   }));
   $('kaliCatalog').querySelectorAll('.kali-run').forEach(b=>b.addEventListener('click',()=>{
     const name=b.dataset.tool;
-    toast('تم اختيار '+name+' — محرك التنفيذ يحتاج NOB Runner على خادم Linux مصرح به.');
+    if(!runnerUrl){toast('اربط NOB Runner أولًا.');showSection('kali');return;}
+    if(b.dataset.mode==='active'){toast('الأداة '+name+' ستعمل على Runner للهدف المصرح به فقط.');}
+    const target=state?.target?.url?.toString()||$('target').value.trim();
+    if(!target){toast('نفّذ فحصًا أساسيًا أو أدخل هدفًا أولًا.');return;}
+    runRunnerTool(name,target);
   }));
   $('kaliCount').textContent=KALI_TOOL_COUNT;
   $('kaliGroups').textContent=KALI_TOOL_GROUPS.length;
+}
+
+async function runRunnerTool(tool,target){
+  const map={nmap:'nmap',whatweb:'whatweb',nikto:'nikto',dnsrecon:'dnsrecon'};
+  const key=map[tool];
+  if(!key){toast('هذه الأداة موجودة في الكتالوج لكن لم نفعّل تنفيذها بعد.');return;}
+  try{
+    toast('جاري تشغيل '+tool+' عبر NOB Runner...');
+    const r=await fetch(runnerUrl+'/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tool:key,target})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok) throw new Error(data.stderr||data.detail||'تعذر تنفيذ الأداة');
+    showSection('kali');
+    const box=$('kaliCatalog');
+    const panel=document.createElement('div');
+    panel.className='scan-card runner-result';
+    panel.innerHTML='<div class="panel-head"><div><h3>'+esc(tool)+' — النتيجة</h3><p>'+esc(data.target||target)+'</p></div><span class="ready">EXIT '+esc(data.exitCode)+'</span></div><pre>'+esc(data.stdout||data.stderr||'لا توجد مخرجات')+'</pre>';
+    box.prepend(panel);
+    toast('اكتمل '+tool);
+  }catch(e){toast(e.message||'تعذر الاتصال بـ NOB Runner');}
 }
 
 function renderFindings(findings=[]){
@@ -358,3 +382,6 @@ $('clearDiscoverySearch').addEventListener('click',()=>{$('discoverySearch').val
 $('kaliSearch').addEventListener('input',renderKaliCatalog);
 $('kaliClear').addEventListener('click',()=>{$('kaliSearch').value='';renderKaliCatalog();});
 renderKaliCatalog();
+$('runnerUrl').value=runnerUrl;
+$('runnerStatus').innerHTML=runnerUrl?'<b>حالة Runner:</b> مربوط — يمكن تشغيل الأدوات المفعلة.':'<b>حالة Runner:</b> غير مربوط.';
+$('saveRunner').addEventListener('click',()=>{const v=$('runnerUrl').value.trim().replace(/\/$/,'');runnerUrl=v;v?localStorage.setItem('nobRunnerUrl',v):localStorage.removeItem('nobRunnerUrl');$('runnerStatus').innerHTML=v?'<b>حالة Runner:</b> مربوط — '+esc(v):'<b>حالة Runner:</b> غير مربوط.';toast(v?'تم حفظ رابط NOB Runner':'تم إلغاء ربط Runner');});
