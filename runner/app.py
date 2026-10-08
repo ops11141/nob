@@ -33,8 +33,8 @@ class KaliJob(BaseModel):
     timeout:int=Field(default=90,ge=10,le=180)
 
 KALI_SAFE_PROFILES={
- "sql":["sqlmap","--batch","--crawl=1","--level=1","--risk=1"],
- "wp":["wpscan","--no-update","--enumerate","ap,at"],
+ "sql":["sqlmap","-u"],
+ "wp":["wpscan","--no-update","--enumerate","ap,at","--url"],
  "zap":["zap-baseline.py","-t"],
  "proxy":["burpsuite","--version"],
  "meta":["msfconsole","-q","-x","version; exit"],
@@ -252,26 +252,45 @@ async def kali_tools_status_route():
     return {"ok":True,"tools":kali_tools_status(),"scope":"authorized-security-assessment"}
 
 def kali_tool_command(job):
+    import shutil
     key=job.tool.lower()
     if key not in KALI_SAFE_PROFILES: raise ValueError("Unsupported Kali tool")
     target=normalize_target(job.target)
-    if key=="zap": cmd=KALI_SAFE_PROFILES[key]+[target["url"]]
-    elif key=="sql": cmd=KALI_SAFE_PROFILES[key]+[target["url"]]
-    elif key=="wp": cmd=KALI_SAFE_PROFILES[key]+["--url",target["url"]]
-    else: cmd=KALI_SAFE_PROFILES[key]
-    return cmd
+    if key=="sql":
+        return ["sqlmap","-u",target["url"],"--batch","--level=1","--risk=1","--crawl=1"]
+    if key=="wp":
+        return ["wpscan","--no-update","--url",target["url"],"--enumerate","ap,at"]
+    if key=="zap":
+        if shutil.which("zap-baseline.py"):
+            return ["zap-baseline.py","-t",target["url"]]
+        if shutil.which("zaproxy"):
+            return ["zaproxy","-cmd","-quickurl",target["url"],"-quickprogress"]
+        raise ValueError("OWASP ZAP executable is not available")
+    if key=="proxy":
+        if shutil.which("burpsuite"): return ["burpsuite","--version"]
+        if shutil.which("burp"): return ["burp","--version"]
+        raise ValueError("Burp Suite executable is not available")
+    if key=="meta":
+        if not shutil.which("msfconsole"): raise ValueError("Metasploit executable is not available")
+        return ["msfconsole","-q","-x","version; exit"]
+    if key=="hydra":
+        if not shutil.which("hydra"): raise ValueError("Hydra executable is not available")
+        return ["hydra","-h"]
+    raise ValueError("Unsupported Kali tool")
 
 @app.post("/kali-tools/run")
 async def kali_tools_run(job:KaliJob):
-    cmd=kali_tool_command(job)
     try:
+        cmd=kali_tool_command(job)
         p=await asyncio.create_subprocess_exec(*cmd,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
         out,err=await asyncio.wait_for(p.communicate(),timeout=job.timeout)
-        return {"ok":p.returncode==0,"tool":job.tool,"target":job.target,"exitCode":p.returncode,"stdout":out.decode("utf-8","replace")[-40000:],"stderr":err.decode("utf-8","replace")[-10000:],"scope":"authorized-security-assessment"}
+        return {"ok":p.returncode==0,"tool":job.tool,"target":job.target,"command":" ".join(cmd[:2])+" …","exitCode":p.returncode,"stdout":out.decode("utf-8","replace")[-40000:],"stderr":err.decode("utf-8","replace")[-10000:],"scope":"authorized-security-assessment"}
     except asyncio.TimeoutError:
         try:p.kill()
         except ProcessLookupError:pass
         return {"ok":False,"tool":job.tool,"error":"Tool execution timed out","scope":"authorized-security-assessment"}
+    except ValueError as e:
+        raise HTTPException(400,str(e))
 
 @app.get("/health")
 async def health():
