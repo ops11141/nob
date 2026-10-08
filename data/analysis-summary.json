@@ -1,8 +1,0 @@
-{
-  "project": "nob",
-  "source": {"name": "GEO.dwg", "sizeBytes": 29310275, "sizeMB": 27.95},
-  "status": "initial-analysis",
-  "rule": "Final counts must come from decoded DWG entities, not ASCII/text string counts.",
-  "initialTextIndicators": {"feederCandidates": 321, "rmuCandidates": 64, "eosCandidates": 57, "engineeringRecords": 463},
-  "targetDatasets": ["entities","layers","texts","blocks","points","lines","polylines","arcs","circles","splines","hatches","dimensions","equipment","feeders","cables","joints","geojson"]
-}
