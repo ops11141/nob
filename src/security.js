@@ -76,7 +76,7 @@ export async function runAuthorizedActiveAssessment(target,onProgress=()=>{}){
       checks.push({method,status:r.status,allow:r.headers.get('allow')||''});
       return r;
     }catch(e){
-      checks.push({method,status:null,allow:'',error:e.name==='AbortError'?'timeout':'blocked'});
+      checks.push({method,status:null,allow:'',error:e.name==='AbortError'?'timeout':'cors'});
       return null;
     }finally{clearTimeout(timer);}
   };
