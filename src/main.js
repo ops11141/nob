@@ -120,7 +120,12 @@ app.innerHTML = `
     </section>
 
     <section id="kali" class="section">
-      <div class="page-title"><span>KALI SECURITY ARSENAL</span><h2>ترسانة أدوات Kali Linux</h2><p>واجهة موحدة لفهرسة أدوات Kali وتصنيفها وربطها لاحقًا بمحرك تنفيذ آمن. الصفحة لا تثبّت Kali داخل المتصفح ولا تشغّل أوامر على جهازك.</p></div>
+      <div class="page-title"><span>NOB DEEP WEB INTELLIGENCE</span><h2>الفحص الشامل</h2><p>أداة واحدة تجمع نتائج عدة محركات استطلاع وفحص عام، ثم تعرضها في نتيجة موحدة. استخدمها فقط على هدف تملك أو تصريحًا لاختباره.</p></div>
+      <div class="deep-scan-card scan-card">
+        <div class="deep-scan-hero"><div><strong>⚡ NOB Deep Scan</strong><span>DNS · Technology · Services · Web Exposure</span></div><button id="deepScanBtn" class="primary-btn">ابدأ الفحص الشامل</button></div>
+        <div id="deepScanProgress" class="deep-progress"><div><span>1</span> DNS Discovery</div><div><span>2</span> Web Fingerprint</div><div><span>3</span> Service Discovery</div><div><span>4</span> Web Assessment</div><div><span>5</span> Correlation</div></div>
+        <div id="deepScanResult" class="empty-state compact"><strong>لم يبدأ الفحص الشامل</strong><span>اربط NOB Runner ثم نفّذ فحصًا أساسيًا أو أدخل الهدف في خانة الفحص.</span></div>
+      </div>
       <div class="scan-card runner-connect"><div class="target-input"><label>NOB Runner — محرك أدوات Kali</label><input id="runnerUrl" type="url" placeholder="https://runner.example.com" autocomplete="off"><button id="saveRunner" type="button">حفظ الربط</button></div><div id="runnerStatus" class="scan-note"><b>حالة Runner:</b> غير مربوط.</div></div>\n      <div class="kali-toolbar scan-card">
         <div class="target-input">
           <label>بحث في أدوات Kali</label>
@@ -236,6 +241,29 @@ function renderKaliCatalog(){
   }));
   $('kaliCount').textContent=KALI_TOOL_COUNT;
   $('kaliGroups').textContent=KALI_TOOL_GROUPS.length;
+}
+
+async function runDeepScan(){
+  if(!runnerUrl){toast('اربط NOB Runner أولًا.');return;}
+  const target=state?.target?.url?.toString()||$('target').value.trim();
+  if(!target){toast('أدخل هدفًا أو نفّذ الفحص الأساسي أولًا.');showSection('scan');return;}
+  const btn=$('deepScanBtn'); btn.disabled=true; btn.textContent='جاري الفحص الشامل...'; showSection('kali');
+  $('deepScanProgress').querySelectorAll('div').forEach((x,i)=>x.classList.toggle('active',i===0));
+  try{
+    const r=await fetch(runnerUrl+'/deep-scan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({target})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok) throw new Error(data.detail||'تعذر تنفيذ الفحص الشامل');
+    const names=['dnsrecon','whatweb','nmap','nikto'];
+    names.forEach((n,i)=>{const el=$('deepScanProgress').querySelectorAll('div')[i];el.classList.remove('active');el.classList.add('done');});
+    $('deepScanProgress').querySelectorAll('div')[4].classList.add('done');
+    const cards=names.map(n=>{
+      const x=data.results[n]||{};
+      return '<article class="deep-result"><div><strong>'+esc(n)+'</strong><span class="'+(x.ok?'ok':'warn')+'">'+(x.ok?'اكتمل':'راجع النتيجة')+'</span></div><pre>'+esc(x.stdout||x.stderr||'لا توجد مخرجات')+'</pre></article>';
+    }).join('');
+    $('deepScanResult').innerHTML='<strong>اكتمل NOB Deep Scan</strong><span>'+esc(data.target)+' — تم جمع النتائج من '+names.length+' محركات.</span><div class="deep-results">'+cards+'</div>';
+    toast('اكتمل الفحص الشامل');
+  }catch(e){toast(e.message||'تعذر الفحص الشامل');}
+  finally{btn.disabled=false;btn.textContent='ابدأ الفحص الشامل';}
 }
 
 async function runRunnerTool(tool,target){
@@ -379,6 +407,7 @@ $('reset').addEventListener('click',()=>location.reload());
 
 $('discoverySearch').addEventListener('input',renderDiscoverySearch);
 $('clearDiscoverySearch').addEventListener('click',()=>{$('discoverySearch').value='';renderDiscoverySearch();});
+$('deepScanBtn').addEventListener('click',runDeepScan);
 $('kaliSearch').addEventListener('input',renderKaliCatalog);
 $('kaliClear').addEventListener('click',()=>{$('kaliSearch').value='';renderKaliCatalog();});
 renderKaliCatalog();
