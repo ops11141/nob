@@ -155,7 +155,25 @@ document.querySelectorAll('[data-section]').forEach(b=>b.addEventListener('click
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showSection(b.dataset.go)));
 
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
-function setProgress(p,msg){$('bar').style.width=p+'%';$('statusText').textContent=msg;}
+function setProgress(p,msg){
+  const percent=typeof p==='number'?p:(p?.percent??0);
+  $('bar').style.width=percent+'%';
+  $('statusText').textContent=msg;
+  const step=p?.step;
+  const map={dns:'stepDns',http:'stepHttp',headers:'stepHeaders',risk:'stepRisk'};
+  if(step&&map[step]){
+    const el=$(map[step]);
+    const steps=[['stepDns','dns'],['stepHttp','http'],['stepHeaders','headers'],['stepRisk','risk']];
+    steps.forEach(([id,key])=>{
+      const node=$(id);
+      const idx=steps.findIndex(x=>x[1]===key);
+      const cur=steps.findIndex(x=>x[1]===step);
+      node.classList.toggle('done',idx<cur);
+      node.classList.toggle('active',idx===cur);
+      node.querySelector('em').textContent=idx<cur?'تم':idx===cur?'جاري':'بانتظار';
+    });
+  }
+}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 
 function renderFindings(findings=[]){
@@ -203,6 +221,7 @@ async function runScan(){
     $('lastResult').innerHTML=`<div class="result-score"><strong>${state.score}</strong><span>/100</span></div><b>${esc(state.target.display)}</b><small>${esc(state.statusMessage)}</small>`;
     $('targetSummary').innerHTML=`<div><span>HOST</span><strong>${esc(state.target.host)}</strong></div><div><span>PROTOCOL</span><strong>${esc(state.target.protocol.toUpperCase())}</strong></div><div><span>STATUS</span><strong>${esc(state.statusMessage)}</strong></div>`;
     renderFindings(state.findings);renderExposure(state.exposure);renderHeaders(state.headers);renderTech(state.technologies);renderReport(state);
+    ['stepDns','stepHttp','stepHeaders','stepRisk'].forEach(id=>{const e=$(id);e.classList.remove('active');e.classList.add('done');e.querySelector('em').textContent='تم';});
     setProgress(100,'اكتمل الفحص الدفاعي');
     toast('اكتمل الفحص');
   }catch(e){setProgress(0,'تعذر إكمال الفحص');toast(e.message||'حدث خطأ غير متوقع');}
