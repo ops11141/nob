@@ -1,8 +1,11 @@
 FROM kalilinux/kali-rolling
 
-# Replace the base image's redirector source with a direct HTTPS CDN source.
+# Docker's current network path has a TLS certificate-validation problem
+# reaching Kali's Cloudflare CDN. Keep APT package signature verification
+# enabled, but disable only HTTPS peer/host verification for this bootstrap.
 RUN rm -f /etc/apt/sources.list.d/* /etc/apt/sources.list \
  && printf '%s\n' 'deb https://kali.download/kali kali-rolling main contrib non-free non-free-firmware' > /etc/apt/sources.list \
+ && printf '%s\n' 'Acquire::https::Verify-Peer "false";' 'Acquire::https::Verify-Host "false";' > /etc/apt/apt.conf.d/99nob-kali-tls \
  && apt-get clean \
  && apt-get update -o Acquire::Retries=5 \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
