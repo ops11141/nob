@@ -1,4 +1,7 @@
-import './styles.css';
+const styleLink = document.createElement('link');
+styleLink.rel = 'stylesheet';
+styleLink.href = new URL('./styles.css', import.meta.url).href;
+document.head.appendChild(styleLink);
 import { normalizeTarget, runPassiveAssessment, runAuthorizedActiveAssessment } from './security.js';
 
 const app = document.querySelector('#app');
