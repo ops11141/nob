@@ -2,7 +2,7 @@ const styleLink = document.createElement('link');
 styleLink.rel = 'stylesheet';
 styleLink.href = new URL('./styles.css', import.meta.url).href;
 document.head.appendChild(styleLink);
-import { normalizeTarget, runPassiveAssessment, runAuthorizedActiveAssessment } from './security.js';
+import { normalizeTarget, runPassiveAssessment, runAuthorizedActiveAssessment, discoverPublicDataSurface } from './security.js';
 
 const app = document.querySelector('#app');
 
@@ -14,6 +14,7 @@ app.innerHTML = `
       <button class="nav-item active" data-section="overview">⌂ الرئيسية</button>
       <button class="nav-item" data-section="scan">◉ فحص موقع</button>
       <button class="nav-item" data-section="active">⚡ تحقق نشط</button>
+      <button class="nav-item" data-section="discovery">🔎 استكشاف البيانات</button>
       <button class="nav-item" data-section="findings">⚠ النتائج والمخاطر</button>
       <button class="nav-item" data-section="exposure">◈ البيانات المكشوفة</button>
       <button class="nav-item" data-section="headers">▣ HTTP / Headers</button>
@@ -99,6 +100,15 @@ app.innerHTML = `
         <div class="active-mode"><div><strong>Authorized Active Validation</strong><span>HEAD / OPTIONS + تحليل الاستجابة — بدون تسجيل دخول أو تغيير بيانات أو تنفيذ استغلال.</span></div><button id="activeBtn">ابدأ التحقق النشط</button></div>
         <div id="activeResult" class="empty-state compact"><strong>لم يبدأ التحقق</strong><span>نفّذ فحصًا أساسيًا أولًا ثم شغّل التحقق النشط على نفس الهدف.</span></div>
       </div>
+    </section>
+
+    <section id="discovery" class="section">
+      <div class="page-title"><span>PUBLIC DATA DISCOVERY</span><h2>استكشاف البيانات والطلبات</h2><p>يستخرج NOB البصمة العامة للصفحة والملفات والنماذج ومؤشرات الـ endpoints الظاهرة، بدون تسجيل دخول أو تجاوز حماية.</p></div>
+      <div class="scan-card">
+        <div class="active-mode"><div><strong>Public Surface Discovery</strong><span>HTML · JS · CSS · Forms · GET/POST · مؤشرات API العامة</span></div><button id="discoveryBtn">ابدأ الاستكشاف</button></div>
+        <div id="discoveryResult" class="empty-state compact"><strong>لم يبدأ الاستكشاف</strong><span>نفّذ فحصًا أساسيًا أولًا ثم استكشف السطح العام لنفس الهدف.</span></div>
+      </div>
+      <div id="discoveryTable" class="finding-list"></div>
     </section>
 
     <section id="findings" class="section">
@@ -229,6 +239,20 @@ async function runScan(){
 }
 
 $('scanBtn').addEventListener('click',runScan);
+$('discoveryBtn').addEventListener('click',async()=>{
+  if(!state?.target){toast('نفّذ فحصًا أساسيًا أولًا.');return;}
+  const b=$('discoveryBtn');b.disabled=true;b.textContent='جاري الاستكشاف...';showSection('discovery');
+  try{
+    const r=await discoverPublicDataSurface(state.target,p=>setProgress(p,p.label));
+    if(!r.ok) throw new Error(r.error||'تعذر الاستكشاف');
+    $('discoveryResult').innerHTML='<strong>اكتمل الاستكشاف العام</strong><span>'+esc('الملفات: '+r.counts.resources+' · مؤشرات endpoints: '+r.counts.endpoints+' · النماذج: '+r.counts.forms)+'</span>';
+    $('discoveryTable').innerHTML=(r.endpoints||[]).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">PUBLIC</span><span class="finding-code">GET</span></div><h3>'+esc(x.url)+'</h3><p>مؤشر Endpoint ظاهر داخل JavaScript عام.</p><div class="recommendation"><b>المصدر:</b> '+esc(x.source)+'</div></article>').join('')+
+      (r.forms||[]).map(x=>'<article class="finding severity-low"><div class="finding-top"><span class="severity">'+esc(x.method)+'</span><span class="finding-code">FORM</span></div><h3>'+esc(x.url)+'</h3><p>نموذج عام ظاهر في HTML.</p><div class="recommendation"><b>الحقول:</b> '+esc((x.fields||[]).join(', ')||'لا توجد حقول مسماة')+'</div></article>').join('');
+    toast('اكتمل استكشاف البيانات العامة');
+  }catch(e){toast(e.message||'تعذر الاستكشاف');}
+  finally{b.disabled=false;b.textContent='ابدأ الاستكشاف';}
+});
+
 $('activeBtn').addEventListener('click',async()=>{
   if(!state?.target){toast('نفّذ فحصًا أساسيًا أولًا.');return;}
   const b=$('activeBtn');b.disabled=true;b.textContent='جاري التحقق...';showSection('active');
