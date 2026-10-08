@@ -65,6 +65,24 @@ app.innerHTML = `
         <div id="publicIntelStatus" class="scan-message">لم يبدأ الاستخراج بعد.</div>
         <div id="publicIntelData" class="intel-grid"></div>
       </section>
+
+      <section id="ftpBrowser" class="public-intel">
+        <div class="result-head">
+          <div><span>AUTHORIZED FILE ACCESS</span><h2>استعراض FTP</h2></div>
+          <button id="ftpListBtn" type="button">اتصال واستعراض</button>
+        </div>
+        <p class="intel-note">للوصول المصرح به فقط. أدخل بيانات حساب FTP/FTPS تملك صلاحية استخدامه. لا توجد وظيفة لتخمين كلمات المرور أو تجاوز تسجيل الدخول.</p>
+        <div class="ftp-form">
+          <input id="ftpHost" type="text" placeholder="ftp.example.com" autocomplete="off">
+          <input id="ftpPort" type="number" value="21" min="1" max="65535" placeholder="21">
+          <select id="ftpTls"><option value="false">FTP</option><option value="true">FTPS</option></select>
+          <input id="ftpUser" type="text" value="anonymous" placeholder="Username" autocomplete="off">
+          <input id="ftpPass" type="password" placeholder="Password" autocomplete="new-password">
+          <input id="ftpPath" type="text" value="/" placeholder="/">
+        </div>
+        <div id="ftpStatus" class="scan-message">لم يتم الاتصال بعد.</div>
+        <div id="ftpData" class="intel-grid"></div>
+      </section>
     </section>
 
     <section id="offline" class="offline hidden">
@@ -265,6 +283,44 @@ $('extractPublicBtn').addEventListener('click',async()=>{
     btn.disabled=false; btn.textContent='استخراج المعلومات';
   }
 });
+
+$('ftpListBtn').addEventListener('click',async()=>{
+  const btn=$('ftpListBtn'), status=$('ftpStatus'), out=$('ftpData');
+  btn.disabled=true; btn.textContent='جاري الاتصال…'; out.innerHTML='';
+  try{
+    const host=$('ftpHost').value.trim();
+    if(!host) throw new Error('أدخل عنوان FTP.');
+    const body={
+      host,
+      port:Number($('ftpPort').value||21),
+      tls:$('ftpTls').value==='true',
+      username:$('ftpUser').value,
+      password:$('ftpPass').value,
+      path:$('ftpPath').value||'/',
+      timeout:15
+    };
+    const r=await fetch(RUNNER_URL+'/ftp/list',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok) throw new Error(data.detail||data.error||'تعذر الاتصال بـFTP');
+    status.textContent=`تم الاتصال بـ ${data.host} — المسار: ${data.path}`;
+    const items=data.items||[];
+    out.innerHTML=[
+      `<article class="intel-card wide"><div class="card-title"><b>محتويات المجلد</b><span>${esc(data.tls?'FTPS':'FTP')}</span></div><div class="data-list">${items.length?items.map(x=>`<div><span>${esc(x.type)}</span><b>${esc(x.name)}</b><small>${x.size==null?'':esc(x.size+' bytes')}</small></div>`).join(''):'<em>المجلد فارغ أو لا توجد عناصر قابلة للعرض.</em>'}</div></article>`,
+      `<article class="intel-card wide"><div class="card-title"><b>معاينة ملف نصي</b><span>حتى 250 KB</span></div><div class="data-list"><div><span>المسار</span><input id="ftpPreviewPath" type="text" value="${esc(data.path)}" placeholder="/path/file.json"><button id="ftpPreviewBtn" type="button">معاينة</button></div></div><pre id="ftpPreviewOut" class="ftp-preview"></pre></article>`
+    ].join('');
+    $('ftpPreviewBtn').addEventListener('click',async()=>{
+      const p=$('ftpPreviewPath').value.trim(); if(!p)return;
+      const rr=await fetch(RUNNER_URL+'/ftp/preview',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...body,path:p}),cache:'no-store'});
+      const dd=await rr.json().catch(()=>({}));
+      $('ftpPreviewOut').textContent=rr.ok&&dd.ok?dd.content:(dd.detail||dd.error||'تعذر المعاينة');
+    });
+  }catch(e){
+    status.textContent='تعذر الاتصال: '+(e.message||'خطأ غير معروف');
+  }finally{
+    btn.disabled=false; btn.textContent='اتصال واستعراض';
+  }
+});
+
 $('newScan').addEventListener('click',()=>{$('target').focus();window.scrollTo({top:0,behavior:'smooth'});});
 $('retryEngine').addEventListener('click',checkEngine);
 checkEngine();
