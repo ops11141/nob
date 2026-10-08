@@ -49,8 +49,8 @@ app.innerHTML = `
           <div class="kali-targetbar"><label>Target</label><input id="kaliTarget" type="text" placeholder="example.com" autocomplete="off"><button id="kaliRunBtn" type="button">تشغيل</button><button id="kaliStatusBtn" type="button">فحص التوفر</button></div>
           <div class="kali-tabs"><button class="active">Dashboard</button><button>Request</button><button>Response</button><button>Console</button><button>Results</button></div>
           <div id="kaliToolPanel" class="kali-tool-panel"></div>
-          <pre id="kaliToolOutput" class="kali-terminal">NOB KALI CONSOLE
-جاهز لتشغيل الأداة من خلال Runner.</pre>
+          <div class="kali-commandbar"><input id="kaliCommandInput" type="text" dir="ltr" autocomplete="off" spellcheck="false" placeholder="اكتب أمر الأداة ثم اضغط Enter"><button id="kaliCommandBtn" type="button">تنفيذ الأمر</button></div><pre id="kaliToolOutput" class="kali-terminal">NOB KALI CONSOLE
+جاهز لتلقي أوامر الأداة.</pre>
         </div>
       </div>
     </section>
@@ -440,6 +440,20 @@ function kaliPanel(){
  $('kaliNativeStatus').onclick=kaliStatusNative;
  $('kaliNativeClear').onclick=()=>{$('kaliToolOutput').textContent='NOB KALI CONSOLE\nCleared.';};
 }
+async function kaliCommand(){
+ const input=$("kaliCommandInput"), out=$("kaliToolOutput");
+ const command=input.value.trim(), target=($("kaliNativeTarget")?.value||$("kaliTarget")?.value||$("target")?.value||"").trim();
+ if(!command){out.textContent="اكتب أمرًا أولًا.";input.focus();return;}
+ if(!target){out.textContent="Target is required.";return;}
+ out.textContent="> "+command+"\n\nجاري التنفيذ…";
+ try{
+  const r=await fetch(RUNNER_URL+"/kali-tools/command",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({tool:activeKaliTool,target,command,timeout:120}),cache:"no-store"});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.detail||d.error||"فشل تنفيذ الأمر");
+  out.textContent="> "+command+"\n\n"+(d.stdout||"")+(d.stderr?"\n"+d.stderr:"");
+ }catch(e){out.textContent="> "+command+"\n\nخطأ: "+e.message;}
+ input.focus();
+}
 async function kaliRunNative(){
  const target=$('kaliNativeTarget').value.trim(), timeout=Number($('kaliNativeTimeout').value)||120, out=$('kaliToolOutput');
  if(!target){out.textContent='Target is required.';return;}
@@ -457,8 +471,10 @@ $('kaliRunBtn')?.addEventListener('click',kaliRunNative);
 $('kaliStatusBtn')?.addEventListener('click',kaliStatusNative);
 $('kaliOpenBtn')?.addEventListener('click',()=>{kaliPanel();$('kaliToolState').textContent='OPEN';});
 kaliPanel();
+$("kaliCommandBtn")?.addEventListener("click",kaliCommand);
+$("kaliCommandInput")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();kaliCommand();}});
 
-document.querySelectorAll('.kali-status-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+document.querySelectorAll(".kali-status-btn").forEach(btn=>btn.addEventListener('click',async()=>{
   const key=btn.dataset.tool, status=document.querySelector('[data-status="'+key+'"]');
   btn.disabled=true; btn.textContent='جاري التحقق…';
   try{
