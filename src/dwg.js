@@ -49,6 +49,16 @@ export async function inspectDwg(file,onProgress=()=>{}){
 
   const entityTypes={};
   const typeSamples={};
+  const objectsIndex=[];
+  onProgress(50,'استخراج كائنات DWG الفعلية');
+  for(let i=0;i<objects;i++){
+    const ptr=safeCall(()=>engine.dwg_get_object(data,i),0);
+    if(!ptr) continue;
+    const type=safeCall(()=>engine.dwg_object_get_dxfname(ptr),'UNKNOWN') || 'UNKNOWN';
+    const handle=safeCall(()=>engine.dwg_object_get_handle(ptr),'');
+    objectsIndex.push({index:i,type,handle});
+    if(i%25===0) onProgress(50+Math.round((i/Math.max(1,objects))*7),'استخراج كائنات DWG الفعلية');
+  }
 
   onProgress(58,'تصنيف العناصر الهندسية');
   for(let i=0;i<list.length;i++){
@@ -73,7 +83,8 @@ export async function inspectDwg(file,onProgress=()=>{}){
   onProgress(90,'بناء نتيجة التحليل');
   const result={
     source:{name:file.name,sizeBytes:file.size,lastModified:file.lastModified},
-    counts:{objects,entities,modelEntities:list.length,classes,layers,ltypes},
+    counts:{objects,entities,modelEntities:list.length,classes,layers,ltypes,extractedObjects:objectsIndex.length},
+    objects:objectsIndex,
     geometry:{
       modelBounds,
       hasBounds:Object.values(modelBounds).every(v=>typeof v==='number' && Number.isFinite(v))
