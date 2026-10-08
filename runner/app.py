@@ -72,6 +72,72 @@ async def execute_tool(name,target,timeout):
         except ProcessLookupError:pass
         return {"ok":False,"exitCode":408,"stdout":"","stderr":"Tool execution timed out"}
 
+
+class SafeRedirectHandler(__import__('urllib.request',fromlist=['HTTPRedirectHandler']).HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        normalize_target(newurl)
+        return super().redirect_request(req,fp,code,msg,headers,newurl)
+
+def public_fetch(url, timeout=8):
+    import urllib.request
+    opener=urllib.request.build_opener(SafeRedirectHandler())
+    req=urllib.request.Request(url,headers={'User-Agent':'NOB-Public-Surface/1.0','Accept':'text/html,application/xhtml+xml,*/*'})
+    with opener.open(req,timeout=timeout) as r:
+        data=r.read(250000)
+        return {'status':r.status,'url':r.geturl(),'content_type':r.headers.get('content-type',''),'text':data.decode('utf-8','replace')}
+
+def extract_public_surface(target):
+    from html.parser import HTMLParser
+    from urllib.parse import urljoin,urlparse
+    class P(HTMLParser):
+        def __init__(self,base):
+            super().__init__(); self.base=base; self.links=[]; self.scripts=[]; self.assets=[]; self.forms=[]
+        def handle_starttag(self,tag,attrs):
+            d=dict(attrs); key={'a':'href','script':'src','link':'href','img':'src','iframe':'src','source':'src'}.get(tag)
+            if key and d.get(key):
+                u=urljoin(self.base,d[key])
+                if u.startswith(('http://','https://')):
+                    if tag=='script': self.scripts.append(u)
+                    elif tag=='a': self.links.append(u)
+                    else: self.assets.append(u)
+            if tag=='form': self.forms.append({'method':d.get('method','GET').upper(),'url':urljoin(self.base,d.get('action') or self.base)})
+    root=public_fetch(target['url']); base=root['url']; parser=P(base); parser.feed(root['text']); origin=urlparse(base).netloc
+    pages=[]; seen=set()
+    for u in [base]+parser.links:
+        p=urlparse(u)
+        if p.scheme in ('http','https') and p.netloc==origin and u not in seen and len(pages)<15: seen.add(u); pages.append(u)
+    endpoints=[]; files=[]
+    def add_endpoint(method,u,source):
+        if urlparse(u).netloc!=origin:return
+        item={'method':method,'url':u,'source':source}
+        if not any(x['method']==method and x['url']==u for x in endpoints): endpoints.append(item)
+    for f in parser.forms: add_endpoint(f['method'],f['url'],base)
+    import re
+    for u in parser.scripts[:30]:
+        files.append({'kind':'script','url':u})
+        try:
+            js=public_fetch(u,6)['text']
+            for raw in re.findall(r"['\"]((?:https?://|/)[^'\"\\s<>]{1,300})['\"]",js):
+                full=urljoin(u,raw)
+                if any(x in full.lower() for x in ('/api/','/graphql','/rest/','/ajax/','/json/','/search/','/upload/','/auth/')): add_endpoint('GET',full,u)
+        except Exception: pass
+    for u in parser.assets[:40]: files.append({'kind':'asset','url':u})
+    for page in pages[1:]:
+        try:
+            pg=public_fetch(page,6); pp=P(pg['url']); pp.feed(pg['text'])
+            for f in pp.forms: add_endpoint(f['method'],f['url'],page)
+            for u in pp.scripts[:10]:
+                if not any(x['url']==u for x in files): files.append({'kind':'script','url':u})
+        except Exception: pass
+    return {'ok':True,'target':target['url'],'finalUrl':base,'status':root['status'],'pages':pages,'endpoints':endpoints[:120],'forms':parser.forms[:60],'files':files[:80],'counts':{'pages':len(pages),'endpoints':len(endpoints),'forms':len(parser.forms),'files':len(files)},'scope':'public-surface-discovery'}
+
+@app.post('/public-surface')
+async def public_surface(job:DeepJob):
+    try: target=normalize_target(job.target)
+    except ValueError as e: raise HTTPException(400,str(e))
+    try: return extract_public_surface(target)
+    except Exception as e: return {'ok':False,'error':str(e)[:300],'scope':'public-surface-discovery'}
+
 @app.get("/health")
 async def health(): return {"ok":True,"service":"NOB Runner","version":"2.0","tools":sorted(TOOLS)}
 
