@@ -228,6 +228,15 @@ async def db_query_route(job:DBJob):
     except ValueError as e:raise HTTPException(400,str(e)[:400])
     except Exception as e:raise HTTPException(400,str(e)[:400])
 
+def kali_tools_status():
+    import shutil
+    specs={"proxy":["burpsuite","burp"],"sql":["sqlmap"],"wp":["wpscan"],"zap":["zaproxy","zap.sh"],"meta":["msfconsole"],"hydra":["hydra"]}
+    return {k:{"available":any(shutil.which(x) for x in names)} for k,names in specs.items()}
+
+@app.get("/kali-tools/status")
+async def kali_tools_status_route():
+    return {"ok":True,"tools":kali_tools_status(),"scope":"authorized-security-assessment"}
+
 @app.get("/health")
 async def health():
     return {"ok":True,"service":"NOB Runner","version":"2.2","tools":sorted(TOOLS),"modules":["public-surface","authorized-ftp-browser","authorized-read-only-database","isolated-db-gateway"]}
