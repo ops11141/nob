@@ -1,5 +1,0 @@
-{
-  "entity": {"handle":"string","type":"string","layer":"string","geometry":"Point|LineString|MultiLineString|Polygon|null","coordinates":"array|null","text":"string|null","block":"string|null","attributes":"object"},
-  "equipment": {"id":"string","name":"string","type":"string","layer":"string","x":"number|null","y":"number|null","sourceHandles":"string[]"},
-  "feeder": {"id":"string","name":"string","station":"string|null","routeEntityIds":"string[]","cableEntityIds":"string[]","equipmentIds":"string[]"}
-}
