@@ -264,7 +264,7 @@ def kali_tool_command(job):
         if shutil.which("zap-baseline.py"):
             return ["zap-baseline.py","-t",target["url"]]
         if shutil.which("zaproxy"):
-            return ["zaproxy","-cmd","-quickurl",target["url"],"-quickprogress"]
+            return ["zaproxy","-dir","/tmp/nob-zap-home","-cmd","-quickurl",target["url"],"-quickprogress"]
         raise ValueError("OWASP ZAP executable is not available")
     if key=="proxy":
         if shutil.which("burpsuite"): return ["burpsuite","--version"]
